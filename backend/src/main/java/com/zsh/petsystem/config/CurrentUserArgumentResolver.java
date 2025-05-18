@@ -1,7 +1,7 @@
 package com.zsh.petsystem.config; // 或其他合适的包，如 'resolver'
 
 import com.zsh.petsystem.annotation.CurrentUser;
-import com.zsh.petsystem.model.Users;
+import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.service.UserService;
 import com.zsh.petsystem.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,14 +25,14 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         // 检查参数是否带有 @CurrentUser 注解
         // 并且参数类型是 Long (用于 userId) 或 Users (用于完整对象)
         return parameter.getParameterAnnotation(CurrentUser.class) != null &&
-               (parameter.getParameterType().isAssignableFrom(Long.class) ||
-                parameter.getParameterType().isAssignableFrom(Users.class));
+                (parameter.getParameterType().isAssignableFrom(Long.class) ||
+                        parameter.getParameterType().isAssignableFrom(Users.class));
     }
 
     // 解析参数值
     @Override
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-                                  NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
+            NativeWebRequest webRequest, WebDataBinderFactory binderFactory) throws Exception {
 
         HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
         if (request == null) {
@@ -42,7 +42,7 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-             // 或者进行适当处理
+            // 或者进行适当处理
             return null;
         }
 

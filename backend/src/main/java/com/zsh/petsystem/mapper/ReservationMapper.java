@@ -1,7 +1,8 @@
 package com.zsh.petsystem.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.zsh.petsystem.model.Reservation;
+import com.zsh.petsystem.entity.Reservation;
+
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper

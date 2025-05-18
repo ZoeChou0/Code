@@ -2,24 +2,31 @@ package com.zsh.petsystem.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zsh.petsystem.dto.ServiceItemDetailDTO;
 import com.zsh.petsystem.dto.ServiceItemUpdateDTO;
+import com.zsh.petsystem.entity.Reservation;
+import com.zsh.petsystem.entity.ServiceItem;
+import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.mapper.ReservationMapper;
 import com.zsh.petsystem.mapper.ServiceItemMapper;
-import com.zsh.petsystem.model.Reservation;
-import com.zsh.petsystem.model.ServiceItem;
-import com.zsh.petsystem.model.Users;
 import com.zsh.petsystem.service.ServiceItemService;
 import com.zsh.petsystem.service.UserService;
 import com.zsh.petsystem.util.EmailApi;
+import com.zsh.petsystem.mapper.ServiceItemMapper;
+
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
+@Slf4j
 public class ServiceItemServiceImpl
         extends ServiceImpl<ServiceItemMapper, ServiceItem>
         implements ServiceItemService {
@@ -32,6 +39,9 @@ public class ServiceItemServiceImpl
 
     @Autowired
     private ReservationMapper reservationMapper;
+
+    @Autowired
+    private ServiceItemMapper serviceItemMapper;
 
     @Override
     public ServiceItem add(ServiceItem item) {
@@ -159,8 +169,10 @@ public class ServiceItemServiceImpl
         LambdaQueryWrapper<Reservation> conflictCheckWrapper = new LambdaQueryWrapper<>();
         conflictCheckWrapper
                 .eq(Reservation::getServiceId, serviceItemId) // 匹配服务项 ID
-                .ne(Reservation::getStatus, "已取消") // 状态不是 "已取消" (确切字符串)
-                .gt(Reservation::getReservationTime, LocalDateTime.now()); // 预约时间在当前时间之后
+                // 状态不是已取消 (需要包含所有代表取消的状态)
+                .notIn(Reservation::getStatus, "已取消", "CANCELLED_USER", "CANCELLED_PROVIDER")
+                // **修改**: 使用 serviceStartTime 检查预约时间是否在当前时间之后
+                .gt(Reservation::getServiceStartTime, LocalDateTime.now());
 
         // 使用 reservationMapper 查询是否存在冲突的预约
         Long conflictingReservationsCount = reservationMapper.selectCount(conflictCheckWrapper);
@@ -206,4 +218,30 @@ public class ServiceItemServiceImpl
         return existingItem;
     }
 
+    @Override // 添加 @Override 注解
+    @Transactional(readOnly = true) // 查询操作建议添加只读事务
+    public List<ServiceItemDetailDTO> getActiveServicesWithDetails(Map<String, Object> params) {
+        // 参数预处理 (例如，将前端传来的 priceRange 数组转换为 minPrice/maxPrice Map 条目)
+        if (params.containsKey("priceRange") && params.get("priceRange") instanceof List) {
+            try {
+                List<?> range = (List<?>) params.get("priceRange");
+                if (range.size() == 2) {
+                    Number min = (Number) range.get(0);
+                    Number max = (Number) range.get(1);
+                    if (min != null && min.doubleValue() > 0) {
+                        params.put("minPrice", min.doubleValue());
+                    }
+                    if (max != null && max.doubleValue() < 1000) { // 假设1000是上限标记
+                        params.put("maxPrice", max.doubleValue());
+                    }
+                }
+            } catch (ClassCastException | IndexOutOfBoundsException e) {
+                // 处理类型转换或索引越界错误，打印日志或忽略
+                log.warn("处理 priceRange 参数时出错: {}", e.getMessage());
+            }
+            params.remove("priceRange"); // 移除原始键，避免混淆
+        }
+        return serviceItemMapper.findActiveServiceDetailsFiltered(params);
+
+    }
 }

@@ -1,56 +1,63 @@
 package com.zsh.petsystem.controller;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.zsh.petsystem.mapper.PaymentMapper;
-import com.zsh.petsystem.util.AuthUtil;
-import com.zsh.petsystem.model.ServiceItem;
+import com.zsh.petsystem.dto.ServiceItemDetailDTO;
+import com.zsh.petsystem.entity.ServiceItem;
 import com.zsh.petsystem.service.ServiceItemService;
-import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+// import java.util.stream.Collectors; // 如果使用 DTO 转换会需要
+import java.util.Map;
 
 @RestController
 @RequestMapping("/services")
 @CrossOrigin
+@Slf4j
 public class ServiceItemController {
 
     @Autowired
-    private ServiceItemService service;
+    private ServiceItemService serviceItemService;
 
+    /**
+     * 获取所有已批准的、可用的服务项列表
+     * 
+     * @return 可用服务列表 (建议使用 DTO 过滤信息)
+     */
+
+    // 如果需要根据 ID 获取单个服务详情的公共接口，也需要注意 DTO 转换
+    // @GetMapping("/{id}")
+    // public ServiceItemDTO getServiceById(@PathVariable Long id) { ... }
+
+    /**
+     * 获取所有已批准的、可用的服务项列表 (支持筛选)
+     * 访问路径: GET /services/active?keyword=美容&location=北京&minPrice=100...
+     * 
+     * @param params 包含所有查询参数的 Map
+     * @return 包含详细信息的服务列表 DTO
+     */
     @GetMapping("/active")
-    public ResponseEntity<?> getActiveServices() {
-        try {
-            List<ServiceItem> activeItems = service.lambdaQuery()
-                    // 查询 reviewStatus 为 "APPROVED" 的服务项
-                    .eq(ServiceItem::getReviewStatus, "APPROVED")
-                    .list();
-            // TODO: DTO 转换，过滤不需要给普通用户看的信息
-            return ResponseEntity.ok(activeItems);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("获取可用服务列表失败: " + e.getMessage());
-        }
+    public List<ServiceItemDetailDTO> getActiveServices(@RequestParam(required = false) Map<String, Object> params) {
+        log.info("请求获取可用服务列表 (/active) with params: {}", params);
+        // 调用更新后的 Service 方法
+        return serviceItemService.getActiveServicesWithDetails(params);
+        // 全局响应处理器会自动将其包装在 Result 对象中返回给前端
     }
 
     /**
-     * 获取所有服务项 (可选接口，根据需要决定是否保留或加权限)
+     * 获取所有服务项 (需要管理员权限)
      * 
-     * @return 所有服务项列表
+     * @return 服务列表 (考虑是否也返回 DTO)
      */
     @GetMapping("/all")
-    public ResponseEntity<?> listAll() {
-        // TODO: 考虑此接口的必要性，以及是否需要权限控制
-        try {
-            List<ServiceItem> allItems = service.list();
-            // TODO: DTO 转换，过滤敏感信息 (如 providerId, rejectionReason 等)
-            return ResponseEntity.ok(allItems);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("获取所有服务列表失败: " + e.getMessage());
-        }
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<ServiceItem> listAll() { // 或者返回 List<ServiceItemDetailDTO>
+        log.info("管理员请求获取所有服务列表 (/all)");
+        // return serviceItemService.getActiveServicesWithDetails(Map.of()); // 如果也想用DTO
+        return serviceItemService.list(); // 当前保持不变
     }
 }

@@ -2,7 +2,7 @@ package com.zsh.petsystem.controller;
 
 import com.zsh.petsystem.annotation.CurrentUser; // 导入 @CurrentUser
 import com.zsh.petsystem.dto.ReviewDTO;
-import com.zsh.petsystem.model.Review;
+import com.zsh.petsystem.entity.Review;
 import com.zsh.petsystem.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus; // 导入 HttpStatus

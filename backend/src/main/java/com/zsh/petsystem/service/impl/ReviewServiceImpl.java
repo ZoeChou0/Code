@@ -2,10 +2,10 @@ package com.zsh.petsystem.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zsh.petsystem.dto.ReviewDTO;
+import com.zsh.petsystem.entity.Reservation;
+import com.zsh.petsystem.entity.Review;
 import com.zsh.petsystem.mapper.ReservationMapper;
 import com.zsh.petsystem.mapper.ReviewMapper;
-import com.zsh.petsystem.model.Reservation;
-import com.zsh.petsystem.model.Review;
 import com.zsh.petsystem.service.ReservationService;
 import com.zsh.petsystem.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;

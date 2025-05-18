@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 public class ReservationDTO {
     private Long petId;
     private Long serviceId;
-    private LocalDate reservationDate;
+    private LocalDate reservationStartDate;
+    private LocalDate reservationEndDate;
     private LocalDateTime reservationTime;
 
 }

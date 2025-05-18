@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zsh.petsystem.mapper.ServiceItemMapper">
+
+    <resultMap id="ServiceItemDetailResultMap" type="com.zsh.petsystem.dto.ServiceItemDetailDTO">
+        <id property="id" column="si_id"/>
+        <result property="name" column="si_name"/>
+        <result property="description" column="si_description"/>
+        <result property="price" column="si_price"/>
+        <result property="duration" column="si_duration"/>
+        <result property="providerId" column="si_provider_id"/>
+        <result property="dailyCapacity" column="si_daily_capacity"/>
+        <result property="requiredVaccinations" column="si_required_vaccinations"/>
+        <result property="requiresNeutered" column="si_requires_neutered"/>
+        <result property="minAge" column="si_min_age"/>
+        <result property="maxAge" column="si_max_age"/>
+        <result property="temperamentRequirements" column="si_temperament_requirements"/>
+        <result property="prohibitedBreeds" column="si_prohibited_breeds"/>
+        <result property="providerName" column="u_name"/>
+        <result property="providerProfilePhotoUrl" column="u_profile_photo_url"/>
+        <result property="providerAddressLine1" column="u_address_line1"/>
+        <result property="providerCity" column="u_city"/>
+        <result property="providerState" column="u_state"/>
+        <result property="providerAverageRating" column="avg_rating"/>
+    </resultMap>
+
+    <select id="findActiveServiceDetailsFiltered" resultMap="ServiceItemDetailResultMap" parameterType="map">
+        SELECT
+            si.id AS si_id,
+            si.name AS si_name,
+            si.description AS si_description,
+            si.price AS si_price,
+            si.duration AS si_duration,
+            si.provider_id AS si_provider_id,
+            si.daily_capacity AS si_daily_capacity,
+            si.required_vaccinations AS si_required_vaccinations,
+            si.requires_neutered AS si_requires_neutered,
+            si.min_age AS si_min_age,
+            si.max_age AS si_max_age,
+            si.temperament_requirements AS si_temperament_requirements,
+            si.prohibited_breeds AS si_prohibited_breeds,
+            u.name AS u_name,
+            u.profile_photo_url AS u_profile_photo_url,
+            u.address_line1 AS u_address_line1,
+            u.city AS u_city,
+            u.state AS u_state,
+            -- 计算此服务的平均评分 (如果服务商没有评价则为 NULL)
+            (SELECT AVG(r.rating) FROM reviews r WHERE r.service_item_id = si.id) AS avg_rating
+        FROM
+            service_item si
+        LEFT JOIN
+            users u ON si.provider_id = u.id
+        WHERE
+            si.review_status = 'APPROVED'  -- 只选择已批准的服务
+            AND u.status = 'active'        -- 确保服务商状态是激活的
+            AND u.qualification_status = 'APPROVED' -- 确保服务商资质已批准
+            <if test="params.keyword != null and params.keyword != ''">
+                AND (si.name LIKE CONCAT('%', #{params.keyword}, '%')
+                     OR si.description LIKE CONCAT('%', #{params.keyword}, '%')
+                     OR u.name LIKE CONCAT('%', #{params.keyword}, '%'))
+            </if>
+            <if test="params.location != null and params.location != ''">
+                AND (u.city LIKE CONCAT('%', #{params.location}, '%')
+                     OR u.state LIKE CONCAT('%', #{params.location}, '%')
+                     OR u.address_line1 LIKE CONCAT('%', #{params.location}, '%'))
+            </if>
+            <if test="params.minPrice != null">
+                AND si.price >= #{params.minPrice}
+            </if>
+            <if test="params.maxPrice != null">
+                AND si.price &lt;= #{params.maxPrice} </if>
+             <if test="params.housingConditions != null and params.housingConditions != ''">
+                <if test="params.housingConditions.contains('house')">
+                     AND u.has_independent_house = TRUE  </if>
+                 <if test="params.housingConditions.contains('fenced_yard')">
+                     AND u.has_fenced_yard = TRUE  </if>
+            </if>
+            <if test="params.petTypes != null and params.petTypes != ''">
+                 AND (si.prohibited_breeds IS NULL OR
+                      <foreach item="petType" collection="params.petTypes.split(',')" separator=" AND ">
+                          si.prohibited_breeds NOT LIKE CONCAT('%', #{petType}, '%')
+                      </foreach>
+                 )
+                 </if>
+            ORDER BY si.id DESC
+    </select>
+
+</mapper>

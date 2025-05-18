@@ -8,7 +8,9 @@ import io.jsonwebtoken.security.SignatureException;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.*;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
@@ -17,6 +19,18 @@ public class JwtUtil {
 
     private static Key getSignKey() {
         return Keys.hmacShaKeyFor(SECRET.getBytes());
+    }
+
+    public static boolean verify(String token) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(SECRET.getBytes())
+                    .build()
+                    .parseClaimsJws(token);
+            return true; // token 合法
+        } catch (JwtException e) {
+            return false; // token 非法或过期
+        }
     }
 
     public static String generateToken(Long userId, String username, String role) {
@@ -50,7 +64,13 @@ public class JwtUtil {
     }
 
     public static String getUsernameFromToken(String token) {
-        return parseToken(token).getSubject();
+        // return parseToken(token).getSubject();
+        return Jwts.parserBuilder()
+                .setSigningKey(SECRET.getBytes(StandardCharsets.UTF_8))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
     }
 
     public static Long extractUserId(String token) {
@@ -63,8 +83,9 @@ public class JwtUtil {
 
     public static boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .setSigningKey(getSignKey())
+            Jwts.parserBuilder()
+                    .setSigningKey(SECRET.getBytes(StandardCharsets.UTF_8))
+                    .build()
                     .parseClaimsJws(token);
             return true;
         } catch (Exception e) {

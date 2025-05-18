@@ -2,7 +2,8 @@ package com.zsh.petsystem.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zsh.petsystem.common.Result;
-import com.zsh.petsystem.model.AlipayOrder;
+import com.zsh.petsystem.entity.AlipayOrder;
+
 import org.springframework.transaction.annotation.Transactional;
 
 public interface AlipayOrderService extends IService<AlipayOrder> {

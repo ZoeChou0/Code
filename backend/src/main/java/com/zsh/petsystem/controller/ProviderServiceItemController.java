@@ -1,12 +1,12 @@
 package com.zsh.petsystem.controller;
 
 import com.zsh.petsystem.annotation.CurrentUser;
+import com.zsh.petsystem.common.Result; // <--- 确保导入 Result 类
 import com.zsh.petsystem.dto.ServiceItemUpdateDTO;
-
-import com.zsh.petsystem.model.ServiceItem;
-import com.zsh.petsystem.model.Users;
+import com.zsh.petsystem.entity.ServiceItem;
+import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.service.ServiceItemService;
-
+import lombok.extern.slf4j.Slf4j; // <--- 导入日志注解
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,94 +17,159 @@ import java.util.Objects;
 
 @RestController
 @RequestMapping("/provider/services")
+@Slf4j
 public class ProviderServiceItemController {
 
     @Autowired
     private ServiceItemService serviceItemService;
 
     @PostMapping("/add")
-    public ResponseEntity<?> addService(@RequestBody ServiceItem item,
+    // 返回值改为 ResponseEntity<Result<?>>
+    public ResponseEntity<Result<?>> addService(@RequestBody ServiceItem item, // 建议使用 CreateDTO
             @CurrentUser Users currentProvider) {
         if (currentProvider == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("无效的 Token 或用户未登录");
+            // 使用 Result.failed 包装错误信息
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("无效的 Token 或用户未登录"));
         }
-        // 检查是否为服务商
         if (!"provider".equalsIgnoreCase(currentProvider.getRole())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("只有服务商才能添加服务项");
+            // 使用 Result.failed 包装错误信息
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("只有服务商才能添加服务项"));
         }
-        item.setProviderId(currentProvider.getId());
 
+        // 后端设置关键属性
+        item.setProviderId(currentProvider.getId());
         item.setReviewStatus("PENDING");
         item.setRejectionReason(null);
+        item.setId(null);
+
         try {
             ServiceItem addedItem = serviceItemService.add(item);
-            return ResponseEntity.ok(addedItem);
+            log.info("Provider {} added new service '{}' (ID: {})", currentProvider.getId(), addedItem.getName(),
+                    addedItem.getId());
+            // 使用 Result.success 包装成功返回的数据
+            return ResponseEntity.ok(Result.success(addedItem, "服务添加成功，等待审核"));
         } catch (Exception e) {
-            // 处理添加过程中可能出现的异常
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("添加服务失败: " + e.getMessage());
+            log.error("Error adding service for provider {}: {}", currentProvider.getId(), e.getMessage(), e);
+            // 使用 Result.failed 包装服务器错误信息
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Result.failed("添加服务失败: " + e.getMessage()));
         }
     }
 
     @GetMapping("/my")
-    public ResponseEntity<?> myServices(@CurrentUser Users currentProvider) {
+    // 返回值改为 ResponseEntity<Result<List<ServiceItem>>> 或 ResponseEntity<Result<?>>
+    public ResponseEntity<Result<?>> myServices(@CurrentUser Users currentProvider) {
         if (currentProvider == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("无效的 Token 或用户未登录");
+            // 使用 Result.failed 包装错误信息
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("无效的 Token 或用户未登录"));
         }
-
         if (!"provider".equalsIgnoreCase(currentProvider.getRole())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("只有服务商才能查看自己的服务项");
+            // 使用 Result.failed 包装错误信息
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("只有服务商才能查看自己的服务项"));
         }
 
-        // 3. 查询服务列表
         try {
             List<ServiceItem> items = serviceItemService.lambdaQuery()
-                    // 直接使用注入的 provider 对象的 ID
                     .eq(ServiceItem::getProviderId, currentProvider.getId())
                     .list();
-            // TODO: DTO 转换，过滤不需要返回给服务商的字段 (例如审核细节)
-            return ResponseEntity.ok(items);
+            // TODO: DTO 转换以隐藏不必要信息
+            // 使用 Result.success 包装成功返回的数据列表
+            return ResponseEntity.ok(Result.success(items));
         } catch (Exception e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("查询服务列表失败: " + e.getMessage());
+            log.error("Error fetching services for provider {}: {}", currentProvider.getId(), e.getMessage(), e);
+            // 使用 Result.failed 包装服务器错误信息
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Result.failed("查询服务列表失败: " + e.getMessage()));
         }
     }
 
-    @PutMapping("/{id}") // 使用 PUT 请求方法
-    public ResponseEntity<?> updateMyService(@PathVariable Long id,
-            @RequestBody ServiceItemUpdateDTO updateDTO,
+    @PutMapping("/{id}")
+    // 返回值改为 ResponseEntity<Result<?>>
+    public ResponseEntity<Result<?>> updateMyService(@PathVariable Long id,
+            @RequestBody ServiceItemUpdateDTO updateDTO, // 建议扩展此 DTO
             @CurrentUser Users currentProvider) {
-        // 1. 检查用户是否登录
+        // --- 权限检查 (保持不变，但使用 Result 包装错误返回) ---
         if (currentProvider == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("无效的 Token 或用户未登录");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("无效的 Token 或用户未登录"));
         }
-
         if (!"provider".equalsIgnoreCase(currentProvider.getRole())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("只有服务商才能修改服务项");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("只有服务商才能修改服务项"));
         }
-
-        // 3. 校验路径 ID 和 DTO 中的 ID 是否一致 (如果 DTO 中有 ID)
         if (updateDTO.getId() == null) {
-            updateDTO.setId(id); // 如果 DTO 没传 ID，从路径获取
+            updateDTO.setId(id);
         } else if (!Objects.equals(id, updateDTO.getId())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("路径 ID 与请求体中的 ID 不匹配");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("路径 ID 与请求体中的 ID 不匹配"));
         }
+        // --- 权限检查结束 ---
 
-        // 4. 调用 Service 层执行更新 (包含权限和冲突检查)
         try {
             ServiceItem updatedItem = serviceItemService.updateProviderServiceItem(updateDTO, currentProvider.getId());
-            // TODO: DTO 转换，过滤信息
-            return ResponseEntity.ok(updatedItem); // 返回更新后的完整对象
+            log.info("Provider {} updated service '{}' (ID: {})", currentProvider.getId(), updatedItem.getName(),
+                    updatedItem.getId());
+            // TODO: DTO 转换
+            // 使用 Result.success 包装成功更新后的数据
+            return ResponseEntity.ok(Result.success(updatedItem, "服务更新成功"));
         } catch (IllegalArgumentException e) { // 非法参数异常
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("更新失败: " + e.getMessage());
+            log.warn("Failed to update service {} (Bad Request): {}", id, e.getMessage());
+            // 使用 Result.failed 包装业务逻辑错误信息
+            return ResponseEntity.badRequest().body(Result.failed("更新失败: " + e.getMessage()));
         } catch (IllegalStateException e) { // 状态冲突异常 (例如存在预约)
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("更新失败: " + e.getMessage()); // 409 Conflict
+            log.warn("Failed to update service {} (Conflict): {}", id, e.getMessage());
+            // 使用 Result.failed 包装业务逻辑错误信息
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Result.failed("更新失败: " + e.getMessage()));
         } catch (RuntimeException e) { // 其他运行时异常 (如无权限、未找到)
-            if (e.getMessage().contains("无权修改")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("更新失败: " + e.getMessage()); // 403 Forbidden
-            } else if (e.getMessage().contains("不存在")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("更新失败: " + e.getMessage()); // 404 Not Found
+            log.error("Error updating service {}: {}", id, e.getMessage(), e);
+            // 根据 Service 层抛出的具体异常信息判断返回状态码，并用 Result.failed 包装
+            if (e.getMessage() != null && (e.getMessage().contains("无权修改") || e.getMessage().contains("not allowed"))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("更新失败: " + e.getMessage()));
+            } else if (e.getMessage() != null
+                    && (e.getMessage().contains("不存在") || e.getMessage().contains("not found"))) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.failed("更新失败: " + e.getMessage()));
             } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("更新服务项时发生错误: " + e.getMessage()); // 500
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.failed("更新服务项时发生内部错误"));
+            }
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    // 返回值改为 ResponseEntity<Result<?>>
+    public ResponseEntity<Result<?>> deleteMyService(@PathVariable Long id, @CurrentUser Users currentProvider) {
+        // --- 权限检查 (保持不变，但使用 Result 包装错误返回) ---
+        if (currentProvider == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("无效的 Token 或用户未登录"));
+        }
+        if (!"provider".equalsIgnoreCase(currentProvider.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("只有服务商才能删除服务项"));
+        }
+        // --- 权限检查结束 ---
+
+        log.info("Provider {} attempting to delete service with ID: {}", currentProvider.getId(), id);
+        try {
+            boolean deleted = serviceItemService.deleteProviderServiceItem(id, currentProvider.getId());
+            if (deleted) {
+                log.info("Provider {} successfully deleted service with ID: {}", currentProvider.getId(), id);
+                // 使用 Result.success 包装成功信息 (无数据)
+                return ResponseEntity.ok(Result.success(null, "服务项删除成功"));
+            } else {
+                // 理论上 Service 层应该抛异常，这里作为后备
+                log.error("Service deletion failed unexpectedly for service ID: {} by provider: {}", id,
+                        currentProvider.getId());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.failed("删除服务项失败，未知原因"));
+            }
+        } catch (IllegalStateException e) { // 捕获 Service 层抛出的状态冲突异常 (如无法删除已批准的服务)
+            log.warn("Failed to delete service {} (Conflict): {}", id, e.getMessage());
+            // 使用 Result.failed 包装业务逻辑错误信息
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Result.failed("删除失败: " + e.getMessage()));
+        } catch (RuntimeException e) { // 捕获 Service 层抛出的其他异常 (如未找到、无权限)
+            log.error("Error deleting service {}: {}", id, e.getMessage(), e);
+            // 根据 Service 层抛出的具体异常信息判断返回状态码，并用 Result.failed 包装
+            if (e.getMessage() != null && (e.getMessage().contains("不存在") || e.getMessage().contains("not found"))) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.failed("删除失败: " + e.getMessage()));
+            } else if (e.getMessage() != null
+                    && (e.getMessage().contains("无权删除") || e.getMessage().contains("not allowed"))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed("删除失败: " + e.getMessage()));
+            } else {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.failed("删除服务项时发生内部错误"));
             }
         }
     }

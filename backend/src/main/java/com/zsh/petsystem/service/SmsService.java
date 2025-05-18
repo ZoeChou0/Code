@@ -9,10 +9,12 @@ import com.aliyuncs.http.MethodType;
 import com.aliyuncs.profile.DefaultProfile;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "spring.sms.enabled", havingValue = "true", matchIfMissing = false)
 public class SmsService {
 
   @Value("${spring.sms.access-key-id}")

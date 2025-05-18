@@ -1,6 +1,5 @@
 package com.zsh.petsystem.config;
 
-
 import com.aliyuncs.http.FormatType;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -13,12 +12,12 @@ public class AlipayConfig {
 
     private String appId;
     private String alipayPublicKey;
-    private String appPrivateKey;
-    //网关
+    private String merchantPrivateKey;
+    // 网关
     private String gatewayUrl;
-    //同步通知
+    // 同步通知
     private String returnUrl;
-    //异步通知
+    // 异步通知
     private String notifyUrl;
 
     private String format = FormatType.JSON.toString();

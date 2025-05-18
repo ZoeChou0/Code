@@ -1,0 +1,62 @@
+
+# 数据库配置,SMTP配置
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/fullstack?useUnicode=true&characterEncoding=utf-8&allowMultiQueries=true&useSSL=false&serverTimezone=GMT%2b8&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+  # 邮箱配置
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: 2252944044@qq.com
+    password: wxqwywiuqwnldijg
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.ssl.enable: true
+      mail.smtp.socketFactory.port: 465
+      mail.smtp.socketFactory.class: javax.net.ssl.SSLSocketFactory
+
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+
+  sms:
+    access-key-id: testAccessKeyId
+    access-key-secret: testAccessKeySecret
+    sign-name: testSignName
+    template-code: testTemplateCode
+
+
+
+# 配置mybatis实体和xml映射
+mybatis:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath:mapper/*.xml
+
+file:
+  upload-dir: /Users/dannndan/petsystem_uploads
+  access-url-prefix: /uploads/  
+
+
+alipay:
+  appId: 2021000148610810
+  merchantPrivateKey: MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCWl+SjB0otMwWEhYWdrLqvSB9tY/2hTx6y6KR68A99FPcAv5dAbqCwkc9bruQ8PhvrcQ1+gIM48fN0cMlaGlOz4NrE044/Ctz102HCQCj1UOJ47ezdMBBx3U6OtyTnYFJChiWIHduJvftItQ193gfs9mOaZ45d6B42DV1z4Bi3ohTP565AbbDE31suWyWRphvCxo+wL3aDf6pHc866x2rzSoj258VmIz4uzIfxVVE1y9vbkDO1lAEfrLEPuUL4YSi9UlGyWKX5/0D1LlhEvTI9OyaNLPXmiahQYFuGFZ84SVKl7Q4w8HfDeBtqqLdpux03Pjfe5V/hZ2DxHcR68QzpAgMBAAECggEAMVuHbIevIDFg1ZaNvKgoZ9rTsh7bukscXLczcbfM28pLSsuA33Vi5Xxk4j/oPnZ84CYlrhig6cEjcj6lQArw9Dv2eBx+utrsoQWvPOOaiQ0BrXEN+VEPksJeRRhx2AQR8gvVsU9X7UV/Xs04ptBm+Juo+aqHVvAFNuIahygj8cuEbNfswKqDcm3Q1Uaik9TwxL8p9GyqPJK1CW/f8VadWUxesl0zwNz8T29PvetMbYb4pGpEfxSQnaYmSmwscVfbgHC8xDVb2vOQHUte0/fFqkIMCM3uwZ+24SJiuZDsZ1B+2lu7fTOi/rGtMGhiF7r4qcDh4rwfZ8yNYBr5vMUsAQKBgQDaAQ+GLWC/w5jl+aPbmg3x2nlUGGEn2mhNiHAlW7vYX8QnZqUd1mGt7I3Bc0sGRMK+phv+MqsCynxO7icyhmSr45RDWRXtxMgbVH/ODpe0c1g3EJPsNLUVgGjg6RuqDdKMMyglQEoLvyRdBkHKHGUoqPfYawZG8tNH6e7LnA6j0QKBgQCw1xZlwVlb08fllIsla7rQdESq0ThAP605g78wFB8iQvA2rG+VkIKTEQEY5ytBBBBh0QWA0UVKZCw8jv8m4Xz0UEzqWEgnR9CFDqr2h9+Vmb2tF8uTYJ11Vz7Yk2YB2AcmC3ryv9gYFgFqRgQeyNeGFyvS3yhkTX6VZapr2/EVmQKBgQCWgRbznk5l9aaQVtmeGWw5JYiP20jv16Qcqu4pjHxR9EOapA2oXMIQ7fgrruoDyOLd9hXrV5WilqJdZ6NeCVRlKvfHyzANd8Ziv+KAIqjvZpZnZaWJ9BV0Y7OEWsrDi0lpi0PS++Bi3bJAGrq+yv23pXd+TN0HjEr7IfC/VtzwkQKBgEDXPNEmqfsvlhYp9zNLYv5YA22WtUdpkbyLAClC13+ah7WkWG3AxP/jtkFJUeTO9qrHF3t6QCvcuxOhYxEAkO6MGwe6QwqUHHMNQ8aNX3/dFV1IYk6xmEqUKOkEctyuN0DN6NDlYvjB6NbswUoAXnY+PMVfKdJNT+K7mldeF/HRAoGAAitXogu634B+1OitmlEjRgMo/PMrQbfwRByydgNzkqWNdaGi0xXkHUbPSiup2DZNfMmiq7cKrvO2uzHbBb7tOoFCap/BhYhoqoN0IgRya/7GxZf6zrLNx6OFaBBdRgyM/eNWbJzI2jB69af1U+dz9ITbkuw4UdoI8dmFoZ+aNS4=
+  alipayPublicKey: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmh9op8tiVSIo/TW+oVZveSelRquFV5vuKwqaERxYPZPPKrF0YWBRhA389qan2Yzo7sAy608BA5Q3qCnEyD6Xicrz8wHsot0aZRNmE1FEIr7gsEUALpNawtD0IGXQxBPjfFcWhDEiNN3Z7CTQdQ9XfEEVnKel+i8t+bFZwatAsTHqnVBx2En9x9D211f52ewboLn8SLvevc2GEn7kwrSfTHAFFee/Q6capMf7+n1nEQZdG6KdQSmsbFC5fwiLOnqtkxaIuFDwR9UBPog4VLPltYgV8N7fsLvqJKGE1ljA+2/jnIvx67kON4mhG4LAVKtZxKelBJqvsr0GAl6qL/D5kwIDAQAB
+  notifyUrl: http://n48266bf.natappfree.cc/alipay/notify
+  returnUrl: http://localhost:5173/orders
+  signType: RSA2
+  charset: utf-8
+  # 我的支付宝网关地址
+  gatewayUrl: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+
+
+logging:
+  level:
+    root: INFO                             # 根日志级别
+    com.zsh.petsystem: DEBUG               # 你的应用包设置为 DEBUG
+    org.springframework.web: DEBUG         
+    org.springframework.security: DEBUG 
