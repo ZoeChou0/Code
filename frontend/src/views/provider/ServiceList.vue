@@ -70,7 +70,7 @@
             controls-position="right"></el-input-number>
         </el-form-item>
         <el-form-item label="要求疫苗" prop="requiredVaccinations">
-          <el-input v-model="serviceForm.requiredVaccinations" placeholder="多种疫苗请用英文逗号分隔, 如 Rabies,DHPP"></el-input>
+          <el-input v-model="serviceForm.requiredVaccinations" placeholder=""></el-input>
         </el-form-item>
         <el-form-item label="要求绝育" prop="requiresNeutered">
           <el-switch v-model="serviceForm.requiresNeutered"></el-switch>

@@ -6,6 +6,7 @@ import com.zsh.petsystem.dto.OrderFromReservationDTO;
 import com.zsh.petsystem.dto.OrderViewDTO;
 import com.zsh.petsystem.entity.Order;
 import com.zsh.petsystem.entity.Reservation;
+import com.zsh.petsystem.entity.ServiceItem;
 import com.zsh.petsystem.mapper.OrderMapper;
 import com.zsh.petsystem.service.OrderService;
 import com.zsh.petsystem.service.PetService;
@@ -219,5 +220,65 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         }
         log.info("Service: Order ID: {} has been successfully cancelled by user {}.", orderId, userId);
 
+    }
+
+    @Override // 确保添加 @Override 注解
+    @Transactional // 通常这类操作需要事务管理
+    public void completeOrderByProvider(Long orderId, Long providerId) {
+        log.info("服务商 {} 尝试完成订单 ID: {}", providerId, orderId);
+
+        if (orderId == null || providerId == null) {
+            throw new IllegalArgumentException("订单ID和服务商ID都不能为空");
+        }
+
+        Order order = this.getById(orderId);
+
+        // 1. 校验订单是否存在
+        if (order == null) {
+            log.warn("尝试完成不存在的订单，订单ID: {}", orderId);
+            throw new RuntimeException("订单不存在，无法完成。");
+        }
+
+        // 2. 校验服务商是否有权操作此订单
+        // 这通常需要通过订单关联的 Reservation，再关联到 ServiceItem，再找到 ServiceItem 的 providerId
+        Reservation reservation = reservationService.getById(order.getReservationId());
+        if (reservation == null) {
+            log.error("订单 {} 关联的预约不存在，无法验证服务商权限。", orderId);
+            throw new RuntimeException("关联预约信息缺失，操作失败。");
+        }
+        ServiceItem serviceItem = serviceItemService.getById(reservation.getServiceId());
+        if (serviceItem == null) {
+            log.error("订单 {} 关联的服务项不存在，无法验证服务商权限。", orderId);
+            throw new RuntimeException("关联服务项信息缺失，操作失败。");
+        }
+
+        if (!Objects.equals(serviceItem.getProviderId(), providerId)) {
+            log.warn("服务商 {} 无权完成订单 {}，该订单属于服务商 {}", providerId, orderId, serviceItem.getProviderId());
+            throw new SecurityException("您无权完成此订单。");
+        }
+
+        // 3. 检查订单当前状态是否允许被服务商完成
+        // 例如，订单可能需要是 "已支付" (PAID) 或 "服务中" (SERVICE_IN_PROGRESS) 状态
+        String currentStatus = order.getStatus();
+        // 示例：假设订单必须是 "已支付" 或 "服务中" 才能被完成
+        if (!("已支付".equalsIgnoreCase(currentStatus) || "服务中".equalsIgnoreCase(currentStatus) /* 根据你的实际状态调整 */ )) {
+            log.warn("订单 {} 当前状态为 '{}'，服务商无法将其标记为完成。", orderId, currentStatus);
+            throw new IllegalStateException("当前订单状态不允许标记为完成。");
+        }
+
+        // 4. 更新订单状态为 "已完成" (或你定义的其他完成状态)
+        order.setStatus("已完成"); // 假设 "已完成" 是你的状态值
+        // 或者如果 Order 实体有 paymentTime 或 completedTime 字段，也可以在这里设置
+
+        boolean updated = this.updateById(order);
+
+        if (!updated) {
+            log.error("数据库更新订单 {} 状态为 '已完成' 失败。", orderId);
+            throw new RuntimeException("数据库操作失败，完成订单失败。");
+        }
+
+        // 5. (可选) 触发后续操作，例如通知用户、计算服务商结算等
+
+        log.info("订单 ID: {} 已被服务商 {} 成功标记为完成。", orderId, providerId);
     }
 }

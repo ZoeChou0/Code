@@ -15,6 +15,8 @@ import com.zsh.petsystem.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 
 import com.zsh.petsystem.service.ReservationService;
+import com.zsh.petsystem.service.ServiceItemService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -276,6 +278,9 @@ public class ReservationServiceImpl
     @Autowired
     private ReservationMapper reservationMapper; // 注入Mapper用于复杂查询
 
+    @Autowired
+    private ServiceItemService serviceItemService;
+
     @Override
     @Transactional // 确保方法原子性
     public Reservation create(ReservationDTO dto, Long userId) {
@@ -463,4 +468,83 @@ public class ReservationServiceImpl
         // ... (之前的检查逻辑：疫苗、绝育、年龄、品种、性格等) ...
         log.info("宠物 ID {} 资格检查通过，服务 ID {}", pet.getId(), serviceItem.getId());
     }
+
+    @Override
+    public List<Reservation> getReservationsForProvider(Long providerId, String status) {
+        LambdaQueryWrapper<Reservation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Reservation::getProviderId, providerId);
+        if (StringUtils.hasText(status) && !"ALL".equalsIgnoreCase(status)) {
+            wrapper.eq(Reservation::getStatus, status.toUpperCase());
+        }
+        wrapper.orderByDesc(Reservation::getReservationStartDate, Reservation::getServiceStartTime);
+        return this.list(wrapper);
+    }
+
+    @Override
+    @Transactional
+    public Reservation confirmReservationByProvider(Long reservationId, Long providerId) {
+        Reservation reservation = getAndCheckProviderReservation(reservationId, providerId);
+        if (!"PENDING".equalsIgnoreCase(reservation.getStatus())) {
+            throw new IllegalStateException("只有待处理的预约才能被确认");
+        }
+        reservation.setStatus("CONFIRMED");
+        this.updateById(reservation);
+        // TODO: 通知用户预约已确认
+        return reservation;
+    }
+
+    @Override
+    @Transactional
+    public Reservation rejectReservationByProvider(Long reservationId, Long providerId, String reason) {
+        Reservation reservation = getAndCheckProviderReservation(reservationId, providerId);
+        if (!"PENDING".equalsIgnoreCase(reservation.getStatus())) {
+            throw new IllegalStateException("只有待处理的预约才能被拒绝");
+        }
+        reservation.setStatus("REJECTED");
+        if (StringUtils.hasText(reason)) {
+            reservation.setRejectionReason(reason);
+        }
+        this.updateById(reservation);
+        // TODO: 通知用户预约被拒绝
+        return reservation;
+    }
+
+    @Override
+    @Transactional
+    public Reservation completeReservationByProvider(Long reservationId, Long providerId) {
+        Reservation reservation = getAndCheckProviderReservation(reservationId, providerId);
+        // 假设只有已确认的预约才能被标记为完成
+        if (!"CONFIRMED".equalsIgnoreCase(reservation.getStatus())) {
+            throw new IllegalStateException("只有已确认的预约才能被标记为完成");
+        }
+        reservation.setStatus("COMPLETED");
+        this.updateById(reservation);
+        // TODO: 触发订单结算、评价邀请等
+        return reservation;
+    }
+
+    private Reservation getAndCheckProviderReservation(Long reservationId, Long providerId) {
+        Reservation reservation = this.getById(reservationId);
+        if (reservation == null)
+            throw new RuntimeException("预约不存在");
+        if (!reservation.getProviderId().equals(providerId)) {
+            // 通过 ServiceItem 再次确认 providerId，或直接比较 reservation.getProviderId()
+            ServiceItem serviceItem = serviceItemService.getById(reservation.getServiceId());
+            if (serviceItem == null || !serviceItem.getProviderId().equals(providerId)) {
+                throw new SecurityException("无权操作此预约");
+            }
+            // 如果 reservation 表本身没有 providerId, 则需要通过 serviceItem 查找
+            // 假设 Reservation 表有 providerId 字段
+        }
+        return reservation;
+    }
+
+    @Override
+    public long countPendingReservationsForProvider(Long providerId) {
+        return this.lambdaQuery()
+                .eq(Reservation::getProviderId, providerId)
+                .eq(Reservation::getStatus, "PENDING")
+                .count();
+    }
+
 }

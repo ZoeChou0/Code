@@ -1,230 +1,22 @@
-// package com.zsh.petsystem.controller;
-
-// import java.util.List;
-// import java.util.stream.Collectors;
-
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.http.HttpStatus;
-// import org.springframework.http.HttpStatusCode;
-// import org.springframework.http.ResponseEntity;
-// import org.springframework.security.access.prepost.PreAuthorize;
-// import org.springframework.web.bind.annotation.CrossOrigin;
-// import org.springframework.web.bind.annotation.GetMapping;
-// import org.springframework.web.bind.annotation.PathVariable;
-// import org.springframework.web.bind.annotation.PutMapping;
-// import org.springframework.web.bind.annotation.RequestBody;
-// import org.springframework.web.bind.annotation.RequestMapping;
-// import org.springframework.web.bind.annotation.RestController;
-// import lombok.extern.slf4j.Slf4j;
-
-// import com.zsh.petsystem.common.Result;
-// import com.zsh.petsystem.dto.ServiceItemRejectionDTO;
-// import com.zsh.petsystem.model.ServiceItem;
-// import com.zsh.petsystem.model.Users;
-// import com.zsh.petsystem.service.ServiceItemService;
-// import com.zsh.petsystem.service.UserService;
-
-// @RestController
-// @RequestMapping("/admin/users")
-// @CrossOrigin
-// @Slf4j
-// @PreAuthorize("hasRole('ADMIN')")
-// public class AdminUserController {
-
-//   @Autowired
-//   private UserService userService;
-
-//   @GetMapping
-//   public ResponseEntity<?> getAllUsersForAdmin() {
-//     log.info("管理员请求获取所有用户列表");
-//     try {
-//       List<Users> users = userService.getAllUsers();
-
-//       // 清除密码字段
-//       List<Users> usersWithoutPassword = users.stream().map(user -> {
-//         user.setPassword(null);
-//         return user;
-//       }).collect(Collectors.toList());
-
-//       return ResponseEntity.ok(Result.success(usersWithoutPassword));
-//     } catch (Exception e) {
-//       log.error("管理员获取用户列表时出错", e);
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body(Result.failed("获取用户列表失败: " + e.getMessage()));
-//     }
-//   }
-
-//   @GetMapping("/providers/pending-review")
-//   public ResponseEntity<?> getPendingProviders() {
-
-//     try {
-//       List<Users> pendingProviders = userService.findPendingQualificationProviders();
-//       return ResponseEntity.ok(pendingProviders);
-//     } catch (Exception e) {
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body("获取待审核服务商列表失败: " + e.getMessage());
-//     }
-//   }
-
-//   // @PutMapping("/providers/{id}/approve")
-//   // public ResponseEntity<?> approveProvider(@PathVariable Long id) {
-//   // try {
-//   // boolean success = serviceItemService.approveServiceItem(id);
-//   // if (success) {
-//   // // 使用 Result 包装响应
-//   // return ResponseEntity.ok(Result.success(null, "服务项已批准"));
-//   // } else {
-//   // return
-//   // ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("操作失败，服务项可能不存在或状态不正确"));
-//   // }
-//   // } catch (RuntimeException e) {
-//   // return
-//   // ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("批准失败: " +
-//   // e.getMessage()));
-//   // } catch (Exception e) {
-//   // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//   // .body(Result.failed("处理批准请求时出错: " + e.getMessage()));
-//   // }
-//   // }
-
-//   // @PutMapping("/providers/{id}/reject")
-//   // public ResponseEntity<?> disable(@PathVariable Long id, @RequestBody
-//   // ServiceItemRejectionDTO rejectionDTO) {
-//   // // 检查驳回原因是否为空
-//   // if (rejectionDTO == null || rejectionDTO.getReason() == null ||
-//   // rejectionDTO.getReason().trim().isEmpty()) {
-//   // return
-//   // ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("必须提供驳回原因"));
-//   // }
-
-//   // try {
-//   // boolean success = serviceItemService.rejectServiceItem(id,
-//   // rejectionDTO.getReason().trim());
-//   // if (success) {
-//   // // 使用 Result 包装响应
-//   // return ResponseEntity.ok(Result.success(null, "服务项已拒绝"));
-//   // } else {
-//   // return
-//   // ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("操作失败，服务项可能不存在或状态不正确"));
-//   // }
-//   // } catch (RuntimeException e) {
-//   // return
-//   // ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Result.failed("拒绝失败: " +
-//   // e.getMessage()));
-//   // } catch (Exception e) {
-//   // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//   // .body(Result.failed("处理拒绝请求时出错: " + e.getMessage()));
-//   // }
-//   // }
-
-//   @PutMapping("/{id}/ban") // 使用 PUT 请求修改状态
-//   public ResponseEntity<?> banUser(@PathVariable("id") Long id) {
-//     log.info("管理员请求禁用用户 ID: {}", id);
-//     try {
-//       boolean success = userService.banUser(id);
-//       if (success) {
-//         return ResponseEntity.ok(Result.success(null, "用户已禁用"));
-//       } else {
-//         // Service 层返回 false 可能因为用户不存在或不能被禁用
-//         return ResponseEntity.badRequest().body(Result.failed("操作失败，用户可能不存在或无法被禁用"));
-//       }
-//     } catch (Exception e) {
-//       log.error("禁用用户 ID {} 时出错", id, e);
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body(Result.failed("禁用用户时发生错误: " + e.getMessage()));
-//     }
-//   }
-
-//   /**
-//    * 解禁用户 (管理员)
-//    * 
-//    * @param id 要解禁的用户 ID
-//    * @return 操作结果
-//    */
-//   @PutMapping("/{id}/unban") // 使用 PUT 请求修改状态
-//   public ResponseEntity<?> unbanUser(@PathVariable("id") Long id) {
-//     log.info("管理员请求解禁用户 ID: {}", id);
-//     try {
-//       boolean success = userService.unbanUser(id);
-//       if (success) {
-//         return ResponseEntity.ok(Result.success(null, "用户已解禁"));
-//       } else {
-//         // Service 层返回 false 可能因为用户不存在
-//         return ResponseEntity.badRequest().body(Result.failed("操作失败，用户可能不存在"));
-//       }
-//     } catch (Exception e) {
-//       log.error("解禁用户 ID {} 时出错", id, e);
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body(Result.failed("解禁用户时发生错误: " + e.getMessage()));
-//     }
-//   }
-
-//   /**
-//    * 批准服务商资质 (管理员)
-//    * 
-//    * @param id 服务商用户 ID
-//    * @return 操作结果
-//    */
-//   @PutMapping("/providers/{id}/approve") // 注意路径前缀
-//   public ResponseEntity<?> approveProviderQualification(@PathVariable("id") Long id) {
-//     log.info("管理员请求批准服务商资质 ID: {}", id);
-//     try {
-//       boolean success = userService.approveProviderQualification(id);
-//       if (success) {
-//         return ResponseEntity.ok(Result.success(null, "服务商资质已批准"));
-//       } else {
-//         return ResponseEntity.badRequest().body(Result.failed("操作失败，用户可能不是待审核的服务商"));
-//       }
-//     } catch (Exception e) {
-//       log.error("批准服务商资质 ID {} 时出错", id, e);
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body(Result.failed("批准服务商资质时发生错误: " + e.getMessage()));
-//     }
-//   }
-
-//   /**
-//    * 拒绝服务商资质 (管理员)
-//    * 
-//    * @param id 服务商用户 ID
-//    * @return 操作结果
-//    */
-//   @PutMapping("/providers/{id}/reject") // 注意路径前缀
-//   public ResponseEntity<?> rejectProviderQualification(@PathVariable("id") Long id) {
-//     // 如果需要拒绝原因，这里需要 @RequestBody DTO reasonDto
-//     log.info("管理员请求拒绝服务商资质 ID: {}", id);
-//     try {
-//       // boolean success = userService.rejectProviderQualification(id,
-//       // reasonDto.getReason()); // 如果需要原因
-//       boolean success = userService.rejectProviderQualification(id);
-//       if (success) {
-//         return ResponseEntity.ok(Result.success(null, "服务商资质已拒绝"));
-//       } else {
-//         return ResponseEntity.badRequest().body(Result.failed("操作失败，用户可能不是待审核的服务商"));
-//       }
-//     } catch (Exception e) {
-//       log.error("拒绝服务商资质 ID {} 时出错", id, e);
-//       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//           .body(Result.failed("拒绝服务商资质时发生错误: " + e.getMessage()));
-//     }
-//   }
-
-// }
-
 package com.zsh.petsystem.controller;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import lombok.extern.slf4j.Slf4j;
 
+import com.zsh.petsystem.common.Result;
 import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.service.UserService;
 
@@ -342,6 +134,33 @@ public class AdminUserController {
       throw new RuntimeException("拒绝资质失败，用户可能不是待审核的服务商");
     }
     log.info("服务商资质 ID: {} 已拒绝", id);
+  }
+
+  // 获取服务商列表 (可按状态筛选) ---
+  @GetMapping("/providers")
+  public ResponseEntity<?> getProvidersByStatus(
+      @RequestParam(required = false) String qualificationStatus) {
+    try {
+      List<Users> providers;
+      if (qualificationStatus != null && !qualificationStatus.isEmpty()) {
+        // 根据传入的状态筛选，确保角色是 provider
+        providers = userService.lambdaQuery()
+            .eq(Users::getRole, "provider")
+            .eq(Users::getQualificationStatus, qualificationStatus.toUpperCase())
+            .list();
+      } else {
+        // 如果没有传入状态，获取所有角色为 provider 的用户
+        providers = userService.lambdaQuery().eq(Users::getRole, "provider").list();
+      }
+      // 移除密码等敏感信息
+      if (providers != null) {
+        providers.forEach(user -> user.setPassword(null));
+      }
+      return ResponseEntity.ok(Result.success(providers));
+    } catch (Exception e) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body(Result.failed("获取服务商列表失败: " + e.getMessage()));
+    }
   }
 
 }

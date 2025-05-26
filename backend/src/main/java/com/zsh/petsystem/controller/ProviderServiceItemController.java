@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @RestController
@@ -171,6 +172,31 @@ public class ProviderServiceItemController {
             } else {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.failed("删除服务项时发生内部错误"));
             }
+        }
+    }
+
+    @PutMapping("/{id}/availability")
+    public ResponseEntity<?> setServiceAvailability(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> payload, // 期望 { "available": true/false }
+            @CurrentUser Users currentUser) {
+        if (currentUser == null || currentUser.getId() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户未登录"));
+        }
+        Boolean available = payload.get("available");
+        if (available == null) {
+            return ResponseEntity.badRequest().body(Result.failed("缺少 'available' 参数"));
+        }
+
+        try {
+            ServiceItem updatedService = serviceItemService.setProviderServiceAvailability(id, currentUser.getId(),
+                    available);
+            String message = available ? "服务已重新上架并通过审核" : "服务已下架"; // 假设下架后需要重新审核
+            return ResponseEntity.ok(Result.success(updatedService, message));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Result.failed(e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Result.failed("操作失败: " + e.getMessage()));
         }
     }
 }

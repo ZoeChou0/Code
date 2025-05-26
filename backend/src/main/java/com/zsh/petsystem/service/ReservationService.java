@@ -13,4 +13,14 @@ public interface ReservationService extends IService<Reservation> {
     List<Reservation> getByUserId(Long userId);
 
     void cancel(Long id);
+
+    List<Reservation> getReservationsForProvider(Long providerId, String status);
+
+    Reservation confirmReservationByProvider(Long reservationId, Long providerId);
+
+    Reservation rejectReservationByProvider(Long reservationId, Long providerId, String reason);
+
+    Reservation completeReservationByProvider(Long reservationId, Long providerId);
+
+    long countPendingReservationsForProvider(Long providerId); // 新增统计
 }

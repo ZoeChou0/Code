@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.annotation.IdType;
 import lombok.Data;
+import java.time.LocalDateTime;
 
 @Data
 @TableName("service_item")
@@ -51,4 +52,7 @@ public class ServiceItem {
 
     // 不接受的品种列表 (例如 "比特犬,罗威纳")
     private String prohibitedBreeds;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
