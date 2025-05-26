@@ -168,3 +168,20 @@ export function rejectService(serviceId: number, reason: string): Promise<Backen
     data: payload // 将原因放在请求体中
   })
 }
+
+// 【新增】服务商删除自己的服务
+export function deleteProviderService(id: number): Promise<BackendResult<null>> {
+  return request<BackendResult<null>>({
+    url: `/provider/services/delete/${id}`,
+    method: 'delete'
+  });
+}
+
+// 【新增】服务商设置服务可用性 (上架/下架)
+export function setServiceAvailability(id: number, available: boolean): Promise<BackendResult<Service>> {
+  return request<BackendResult<Service>>({
+    url: `/provider/services/${id}/availability`, // 后端接口路径
+    method: 'put',
+    data: { available } // 后端期望接收的数据格式
+  });
+}

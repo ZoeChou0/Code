@@ -2,6 +2,7 @@ package com.zsh.petsystem.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zsh.petsystem.dto.ServiceCreateDTO;
 import com.zsh.petsystem.dto.ServiceItemDetailDTO;
 import com.zsh.petsystem.dto.ServiceItemUpdateDTO;
 import com.zsh.petsystem.entity.Reservation;
@@ -16,6 +17,7 @@ import com.zsh.petsystem.mapper.ServiceItemMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -243,5 +245,107 @@ public class ServiceItemServiceImpl
         }
         return serviceItemMapper.findActiveServiceDetailsFiltered(params);
 
+    }
+
+    @Override
+    @Transactional
+    public ServiceItem setProviderServiceAvailability(Long serviceItemId, Long providerId, boolean available) {
+        ServiceItem item = this.getById(serviceItemId);
+        if (item == null)
+            throw new RuntimeException("服务项不存在");
+        if (!item.getProviderId().equals(providerId))
+            throw new SecurityException("无权操作此服务项");
+
+        // 如果是下架，可以直接改为一个例如 "UNAVAILABLE" 或 "INACTIVE" 的状态
+        // 如果是重新上架，通常需要管理员重新审核，所以可能设为 "PENDING_APPROVAL"
+        if (available) {
+            if (!"APPROVED".equals(item.getReviewStatus())) { // 假设只有 APPROVED 的才能操作上架，或者下架后重新上架需要审核
+                item.setReviewStatus("PENDING_APPROVAL"); // 或直接 APPROVED，取决于业务
+                log.info("服务项 {} 由服务商 {} 申请重新上架，状态更改为 PENDING_APPROVAL", serviceItemId, providerId);
+            } else {
+                // 如果已经是 APPROVED 且是想从一个非活跃状态恢复 (假设我们添加一个 active 字段)
+                // item.setActive(true);
+                // 这里简化处理：如果已经是 APPROVED，则不改变 reviewStatus
+                log.info("服务项 {} 已是 APPROVED 状态，无需操作上架审核状态", serviceItemId);
+            }
+        } else { // 下架
+            // 注意：下架不应影响 PENDING_APPROVAL 或 REJECTED 的状态
+            // 考虑增加一个新的布尔字段如 `isListed` 或 `isActiveByProvider`
+            // 此处简化：如果已经是 APPROVED，可以改为一个自定义的 "SUSPENDED_BY_PROVIDER" 状态
+            // 或者，更简单的逻辑是，服务商不能直接“上架”，只能提交审核，下架后可能也需要重新审核才能上架
+            // 暂时我们假设服务商只能控制一个额外的 "active" 状态，或者下架就是标记为 "PENDING_APPROVAL" 等待管理员重新审核
+            // 为简单起见，如果想下架，则改为 PENDING_APPROVAL，让管理员决定是否批准。
+            // 或者，更合理的做法是，服务项一旦 APPROVED，服务商只能主动将其设为 “UNAVAILABLE_BY_PROVIDER”
+            // 而不能直接改回 PENDING_APPROVAL 或 REJECTED。
+            // 此处示例为修改为 PENDING_APPROVAL 等待管理员操作
+            if ("APPROVED".equals(item.getReviewStatus())) {
+                item.setReviewStatus("PENDING_APPROVAL"); // 下架后需要重新审核
+                log.info("服务项 {} 由服务商 {} 下架，状态更改为 PENDING_APPROVAL", serviceItemId, providerId);
+            } else {
+                log.info("服务项 {} 当前状态为 {}，服务商下架操作不改变其审核状态。", serviceItemId, item.getReviewStatus());
+                // 或者抛出异常，不允许操作非 APPROVED 的服务
+                // throw new IllegalStateException("只有已批准的服务才能被下架");
+            }
+            // 实际下架操作可能更复杂，比如需要检查是否有未完成的预约等。
+        }
+        // 这里只是修改 reviewStatus，实际业务中“下架”可能意味着修改一个独立的布尔字段 `published` 或 `active`
+        // 并且下架后，该服务不应再出现在普通用户的搜索结果中。
+        // 简单的做法是，如果服务商想下架，就将 reviewStatus 改为非 APPROVED 的状态，例如 "UNLISTED_BY_PROVIDER"
+        // 这里我们假设下架就是让它变为非 APPROVED 状态，例如 PENDING_APPROVAL (需要管理员再次审核才能上架)
+        // 或者，如果 reviewStatus 有 "UNAVAILABLE" 值
+        // item.setReviewStatus(available ? "APPROVED" : "UNAVAILABLE"); // 假设服务商可以直接切换
+
+        this.updateById(item);
+        return item;
+    }
+
+    @Override
+    public long countActiveServicesForProvider(Long providerId) {
+        return this.lambdaQuery()
+                .eq(ServiceItem::getProviderId, providerId)
+                .eq(ServiceItem::getReviewStatus, "APPROVED") // 只统计已批准的
+                .count();
+    }
+
+    @Override
+    @Transactional // 推荐为创建操作添加事务管理
+    public ServiceItem addProviderService(ServiceCreateDTO dto, Long providerId) {
+        if (dto == null || providerId == null) {
+            throw new IllegalArgumentException("服务创建信息和提供者ID不能为空");
+        }
+
+        ServiceItem serviceItem = new ServiceItem();
+        // 使用 BeanUtils 复制匹配的属性，或者手动设置
+        BeanUtils.copyProperties(dto, serviceItem);
+
+        // 设置由后端逻辑决定的字段
+        serviceItem.setProviderId(providerId);
+        serviceItem.setReviewStatus("PENDING_APPROVAL"); // 新服务通常需要审核
+        serviceItem.setCreatedAt(LocalDateTime.now()); // 设置创建时间
+        serviceItem.setUpdatedAt(LocalDateTime.now()); // 设置更新时间
+
+        // 校验 dailyCapacity 是否为 null，如果是，则可能需要设置为0或一个默认值
+        if (serviceItem.getDailyCapacity() == null) {
+            serviceItem.setDailyCapacity(0); // 或者一个你业务逻辑中的默认值，比如Integer.MAX_VALUE代表无限
+        }
+
+        // 如果 requiresNeutered 是 Boolean 类型，且 DTO 中是可选的，这里可能需要处理 null
+        if (serviceItem.getRequiresNeutered() == null) {
+            serviceItem.setRequiresNeutered(false); // 或根据业务逻辑设为 true/null
+        }
+
+        // 保存到数据库
+        boolean saved = this.save(serviceItem); // this.save() 是 ServiceImpl 提供的方法
+
+        if (!saved || serviceItem.getId() == null) {
+            // 可以记录日志
+            // log.error("服务商 {} 创建服务项 {} 失败，数据库保存返回 false 或 ID 为空", providerId,
+            // dto.getName());
+            throw new RuntimeException("创建服务项数据库操作失败");
+        }
+
+        // log.info("服务商 {} 成功创建服务项: {}, ID: {}", providerId, serviceItem.getName(),
+        // serviceItem.getId());
+        return serviceItem; // 返回包含新生成 ID 的实体对象
     }
 }

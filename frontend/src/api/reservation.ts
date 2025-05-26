@@ -59,3 +59,47 @@ export function cancelReservation(id: number): Promise<BackendResult<null>> {
     method: 'post' // 或者 'put'/'delete'，根据后端设定
   });
 }
+
+// 【新增】获取当前服务商收到的预约列表
+export function getProviderReservations(params?: { status?: string }): Promise<BackendResult<Reservation[]>> {
+  return request<BackendResult<Reservation[]>>({
+    url: '/provider/reservations', // **确认后端有此接口**
+    method: 'get',
+    params
+  });
+}
+
+// 【新增】服务商确认预约
+export function confirmReservationByProvider(id: number): Promise<BackendResult<Reservation>> {
+  return request<BackendResult<Reservation>>({
+    url: `/provider/reservations/${id}/confirm`, // **确认后端有此接口**
+    method: 'put'
+  });
+}
+
+// 【新增】服务商拒绝预约
+export function rejectReservationByProvider(id: number, reason?: string): Promise<BackendResult<Reservation>> {
+  return request<BackendResult<Reservation>>({
+    url: `/provider/reservations/${id}/reject`, // **确认后端有此接口**
+    method: 'put',
+    data: { rejectionReason: reason }
+  });
+}
+
+// 【新增】服务商标记服务完成
+export function completeReservationByProvider(id: number): Promise<BackendResult<Reservation>> {
+  return request<BackendResult<Reservation>>({
+    url: `/provider/reservations/${id}/complete`, // **确认后端有此接口**
+    method: 'put'
+  });
+}
+
+// 【新增】服务商主动取消已确认的预约 (如果与拒绝使用不同接口)
+// 注意：cancelOrRejectReservation 是我之前给的一个通用名，你需要根据实际后端接口拆分或命名
+export function cancelReservationByProvider(id: number, reason?: string): Promise<BackendResult<Reservation>> {
+  return request<BackendResult<Reservation>>({
+    url: `/provider/reservations/${id}/cancel-by-provider`, // **假设一个不同的后端接口**
+    method: 'put',
+    data: { cancellationReason: reason }
+  });
+}
