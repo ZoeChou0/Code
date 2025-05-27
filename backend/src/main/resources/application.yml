@@ -60,3 +60,8 @@ logging:
     com.zsh.petsystem: DEBUG               # 你的应用包设置为 DEBUG
     org.springframework.web: DEBUG         
     org.springframework.security: DEBUG 
+
+
+jpush:
+  app-key: 71e9f86fdde5e49ca3e1a82e
+  master-secret: f857dc3cd5e72c42e333507d
