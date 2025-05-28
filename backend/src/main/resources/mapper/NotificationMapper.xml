@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zsh.petsystem.mapper.NotificationMapper">
+
+    <resultMap id="NotificationViewDTOResultMap" type="com.zsh.petsystem.dto.NotificationViewDTO">
+        <id property="id" column="n_id"/>
+        <result property="userId" column="n_user_id"/>
+        <result property="type" column="n_type"/>
+        <result property="title" column="n_title"/>
+        <result property="content" column="n_content"/>
+        <result property="level" column="n_level"/>
+        <result property="data" column="n_data" javaType="java.util.Map" jdbcType="VARCHAR" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result property="isBroadcast" column="n_is_broadcast"/>
+        <result property="createdAt" column="n_created_at"/>
+        <result property="sentAt" column="n_sent_at"/>
+        </resultMap>
+
+    <select id="findUserNotifications" resultMap="NotificationViewDTOResultMap">
+        SELECT
+            n.id as n_id,
+            n.user_id as n_user_id,         
+            n.type as n_type,
+            n.title as n_title,
+            n.content as n_content,
+            n.level as n_level,
+            n.data as n_data,          
+            n.is_broadcast as n_is_broadcast,
+            n.created_at as n_created_at,
+            n.sent_at as n_sent_at
+        FROM
+            notifications n
+        WHERE
+            (
+                (n.user_id = #{targetUserIdForNotification} AND (n.is_broadcast = FALSE OR n.is_broadcast IS NULL))
+                OR 
+                (n.is_broadcast = TRUE)
+            )
+        ORDER BY n.created_at DESC
+    </select>
+
+</mapper>

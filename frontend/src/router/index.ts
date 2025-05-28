@@ -309,6 +309,12 @@ const routes: RouteRecordRaw[] = [
       roles: ['user']      // 只允许普通用户访问
     }
   },
+  {
+    path: '/notifications', // 用户查看通知的路径
+    name: 'UserNotificationCenter',
+    component: () => import('../views/UserNotificationCenter.vue'), // 假设放在 views/user/ 目录下
+    meta: { requiresAuth: true } // 通常需要登录才能查看
+  },
 
   // 服务商路由
   {
@@ -374,6 +380,12 @@ const routes: RouteRecordRaw[] = [
         path: 'profile/edit',
         name: 'AdminEditProfile',
         component: () => import('../views/admin/EditProfile.vue')
+      },
+      {
+        path: 'send-notification', // 例如: /admin/send-notification
+        name: 'AdminSendNotification',
+        component: () => import('../views/admin/AdminNotificationSender.vue'),
+        meta: { requiresAuth: true, roles: ['admin'] } // 确保权限
       }
     ]
   }

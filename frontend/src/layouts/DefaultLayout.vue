@@ -15,21 +15,27 @@
             <template v-else>
               <!-- 普通用户菜单 -->
               <template v-if="userStore.isUser()">
+                <router-link to="/services">服务列表</router-link>
+                <router-link to="/pets">我的宠物</router-link>
+                <router-link to="/orders">我的订单</router-link>
+                <router-link to="/notifications">消息通知</router-link>
               </template>
 
               <!-- 服务商菜单 -->
-              <!-- <template v-if="userStore.isProvider()">
+              <template v-if="userStore.isProvider()">
+                <router-link to="/provider/dashboard">服务商中心</router-link>
                 <router-link to="/provider/services">服务管理</router-link>
+                <router-link to="/provider/reservations">预约管理</router-link>
                 <router-link to="/provider/orders">订单管理</router-link>
-              </template> -->
+              </template>
 
               <!-- 管理员菜单 -->
-              <!-- <template v-if="userStore.isAdmin()">
+              <template v-if="userStore.isAdmin()">
                 <router-link to="/admin/users">用户管理</router-link>
                 <router-link to="/admin/providers">服务商管理</router-link>
                 <router-link to="/admin/services">服务管理</router-link>
                 <router-link to="/admin/orders">订单管理</router-link>
-              </template> -->
+              </template>
 
               <el-dropdown @command="handleCommand">
   <span class="user-info">

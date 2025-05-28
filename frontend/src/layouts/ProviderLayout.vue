@@ -1,26 +1,28 @@
 <template>
   <el-container class="provider-layout">
     <el-aside width="200px" class="provider-aside">
-      <!-- <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" router :collapse="isCollapse">
-        <!-- <el-menu-item index="/provider/services">
-          <el-icon>
-            <Service />
-          </el-icon>
+      <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" router :collapse="isCollapse">
+        <el-menu-item index="/provider/dashboard">
+          <el-icon><DataLine /></el-icon>
+          <span>服务商中心</span>
+        </el-menu-item>
+        <el-menu-item index="/provider/services">
+          <el-icon><Service /></el-icon>
           <span>服务管理</span>
         </el-menu-item>
+        <el-menu-item index="/provider/reservations">
+          <el-icon><Calendar /></el-icon>
+          <span>预约管理</span>
+        </el-menu-item>
         <el-menu-item index="/provider/orders">
-          <el-icon>
-            <Tickets />
-          </el-icon>
+          <el-icon><Tickets /></el-icon>
           <span>订单管理</span>
         </el-menu-item>
         <el-menu-item @click="handleLogout">
-          <el-icon>
-            <SwitchButton />
-          </el-icon>
+          <el-icon><SwitchButton /></el-icon>
           <span>退出登录</span>
         </el-menu-item>
-      </el-menu> -->
+      </el-menu>
       <el-button @click="toggleCollapse" class="collapse-button">
         <el-icon v-if="isCollapse">
           <Expand />
@@ -45,7 +47,7 @@
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElContainer, ElAside, ElMain, ElMenu, ElMenuItem, ElIcon, ElButton, ElMessage } from 'element-plus';
-import { Service, Tickets, SwitchButton, Fold, Expand } from '@element-plus/icons-vue'; // Import necessary icons
+import { Service, Tickets, SwitchButton, Fold, Expand, DataLine, Calendar } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user'; // Import user store
 
 const route = useRoute();
