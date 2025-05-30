@@ -1,15 +1,18 @@
 package com.zsh.petsystem.controller;
 
+import com.zsh.petsystem.common.Result;
 import com.zsh.petsystem.dto.ServiceItemDetailDTO;
 import com.zsh.petsystem.entity.ServiceItem;
 import com.zsh.petsystem.service.ServiceItemService;
 
 import org.springframework.beans.factory.annotation.Autowired;
-
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
 import java.util.List;
 // import java.util.stream.Collectors; // 如果使用 DTO 转换会需要
 import java.util.Map;
@@ -60,4 +63,18 @@ public class ServiceItemController {
         // return serviceItemService.getActiveServicesWithDetails(Map.of()); // 如果也想用DTO
         return serviceItemService.list(); // 当前保持不变
     }
+
+    @GetMapping("/{id}") // 响应 GET /services/{id}
+    public ResponseEntity<?> getServiceDetailById(@PathVariable Long id) {
+        log.info("Request to get service detail by ID: {}", id);
+        Map<String, Object> params = new HashMap<>();
+        params.put("id", id);
+        List<ServiceItemDetailDTO> results = serviceItemService.getActiveServicesWithDetails(params); // 调用现有方法，通过参数筛选
+        if (results != null && !results.isEmpty()) {
+            return ResponseEntity.ok(Result.success(results.get(0)));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.failed("未找到指定ID的服务详情或服务不可用"));
+        }
+    }
+
 }

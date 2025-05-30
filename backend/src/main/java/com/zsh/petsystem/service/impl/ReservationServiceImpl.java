@@ -3,6 +3,8 @@ package com.zsh.petsystem.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zsh.petsystem.dto.ReservationDTO; // 假设 DTO 可能包含 userNotes
+import com.zsh.petsystem.dto.WebSocketMessageDTO;
+import com.zsh.petsystem.entity.Notifications;
 import com.zsh.petsystem.entity.Pets;
 import com.zsh.petsystem.entity.Reservation;
 import com.zsh.petsystem.entity.ServiceItem;
@@ -11,9 +13,11 @@ import com.zsh.petsystem.mapper.PetMapper;
 import com.zsh.petsystem.mapper.ReservationMapper;
 import com.zsh.petsystem.mapper.ServiceItemMapper;
 import com.zsh.petsystem.service.UserService;
+import com.zsh.petsystem.service.WebNotificationService;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.zsh.petsystem.service.NotificationService;
 import com.zsh.petsystem.service.ReservationService;
 import com.zsh.petsystem.service.ServiceItemService;
 
@@ -23,245 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal; // 导入 BigDecimal
-import java.time.Duration; // 导入 Duration
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects; // 导入 Objects
-
-// @Service
-// public class ReservationServiceImpl
-//         extends ServiceImpl<ReservationMapper, Reservation>
-//         implements ReservationService {
-
-//     @Autowired
-//     private PetMapper petMapper;
-
-//     @Autowired
-//     private ServiceItemMapper serviceItemMapper;
-
-//     @Autowired
-//     private UserService userService;
-
-//     @Autowired
-//     private ReservationMapper reservationMapper;
-
-//     @Override
-//     @Transactional
-//     public Reservation create(ReservationDTO dto, Long userId) {
-//         // --- 用户、宠物、服务项校验 (基本保持不变) ---
-//         Users user = userService.getById(userId);
-//         if (user == null)
-//             throw new RuntimeException("用户不存在 (ID: " + userId + ")");
-
-//         Pets pet = petMapper.selectById(dto.getPetId());
-//         if (pet == null)
-//             throw new RuntimeException("宠物不存在 (ID: " + dto.getPetId() + ")");
-//         if (!Objects.equals(userId, pet.getUserId())) { // 使用 Objects.equals 更安全
-//             throw new RuntimeException("无法预约不属于自己的宠物");
-//         }
-
-//         ServiceItem serviceItem = serviceItemMapper.selectById(dto.getServiceId());
-//         if (serviceItem == null)
-//             throw new RuntimeException("服务项不存在 (ID: " + dto.getServiceId() + ")");
-
-//         // --- 服务项状态校验 (保持不变) ---
-//         if (!"APPROVED".equalsIgnoreCase(serviceItem.getReviewStatus())) { // 使用 equalsIgnoreCase
-//             if ("PENDING".equalsIgnoreCase(serviceItem.getReviewStatus())) {
-//                 throw new RuntimeException("该服务项正在审核中，暂无法预约");
-//             } else if ("REJECTED".equalsIgnoreCase(serviceItem.getReviewStatus())) {
-//                 throw new RuntimeException("该服务项审核未通过，无法预约");
-//             } else {
-//                 throw new RuntimeException("该服务项当前不可用 (" + serviceItem.getReviewStatus() + ")");
-//             }
-//         }
-
-//         // --- 宠物资格检查 (保持不变) ---
-//         checkPetEligibility(pet, serviceItem);
-
-//         // --- 服务容量检查 (保持不变, 但状态检查可以更精确) ---
-//         LocalDate reservationDate = dto.getReservationDate();
-//         if (serviceItem.getDailyCapacity() != null && serviceItem.getDailyCapacity() > 0) {
-//             long currentBookings = this.lambdaQuery()
-//                     .eq(Reservation::getServiceId, dto.getServiceId())
-//                     .eq(Reservation::getReservationDate, reservationDate)
-//                     // 排除最终失败/取消的状态，更精确地计算有效预约
-//                     .notIn(Reservation::getStatus,
-//                             "CANCELLED_USER", "CANCELLED_PROVIDER", "REJECTED",
-//                             "已取消", "Cancelled") // 根据你的状态定义调整
-//                     .count();
-//             if (currentBookings >= serviceItem.getDailyCapacity()) {
-//                 throw new RuntimeException("该服务项在 " + reservationDate + " 的预约已满");
-//             }
-//         }
-
-//         // --- **开始设置新的预约对象字段** ---
-//         Reservation reservation = new Reservation();
-
-//         // 核心 ID
-//         reservation.setUserId(userId);
-//         reservation.setPetId(dto.getPetId());
-//         reservation.setServiceId(serviceItem.getId());
-//         // **新增**: 设置服务商 ID
-//         reservation.setProviderId(serviceItem.getProviderId());
-//         // reservation.setOrderId(null); // Order ID 在创建订单时关联
-
-//         // 时间相关
-//         reservation.setReservationDate(dto.getReservationDate());
-//         // **修改**: 设置服务开始时间 (假设 DTO 传递的是开始时间)
-//         if (dto.getReservationTime() == null) {
-//             throw new IllegalArgumentException("必须提供预约开始时间");
-//         }
-//         reservation.setServiceStartTime(dto.getReservationTime());
-//         // **新增**: 计算并设置服务结束时间
-//         if (serviceItem.getDuration() != null && serviceItem.getDuration() > 0) {
-//             // 假设 duration 单位是分钟
-//             reservation.setServiceEndTime(dto.getReservationTime().plusMinutes(serviceItem.getDuration()));
-//         } else {
-//             // 如果没有时长，结束时间可以设为 null 或与开始时间相同，或抛出错误
-//             // reservation.setServiceEndTime(dto.getReservationTime());
-//             // 或者根据业务决定，这里暂时设为 null
-//             reservation.setServiceEndTime(null);
-//         }
-//         // checkInTime, checkOutTime 默认为 null
-
-//         // 状态和详情
-//         // **修改**: 设置初始状态 (例如，等待服务商确认 或 直接已确认)
-//         // reservation.setStatus("已预约"); // 旧状态
-//         reservation.setStatus("PENDING_CONFIRMATION"); // 示例：等待服务商确认
-//         // reservation.setStatus("CONFIRMED"); // 示例：如果无需服务商确认
-
-//         // **新增**: 设置预订时的金额
-//         if (serviceItem.getPrice() != null) {
-//             reservation.setAmount(BigDecimal.valueOf(serviceItem.getPrice())); // 从 Double 转 BigDecimal
-//         } else {
-//             reservation.setAmount(BigDecimal.ZERO); // 或者抛出错误如果价格必须存在
-//         }
-
-//         // **新增**: 设置用户备注 (假设 DTO 已添加 userNotes 字段)
-//         // if (dto.getUserNotes() != null) {
-//         // reservation.setUserNotes(dto.getUserNotes());
-//         // }
-
-//         // createdAt 和 updatedAt 会由 Mybatis-Plus 填充策略处理
-
-//         // --- 保存预约 ---
-//         boolean saved = this.save(reservation);
-//         if (!saved) {
-//             throw new RuntimeException("创建预约到数据库失败");
-//         }
-
-//         // TODO: 触发后续流程，例如通知服务商确认 (如果需要)
-
-//         return reservation; // 返回包含 ID 的完整预约对象
-//     }
-
-//     @Override
-//     public List<Reservation> getByUserId(Long userId) {
-//         // 按服务开始时间降序可能更符合用户查看习惯
-//         return this.lambdaQuery()
-//                 .eq(Reservation::getUserId, userId)
-//                 // .orderByDesc(Reservation::getCreatedAt) // 按创建时间
-//                 .orderByDesc(Reservation::getServiceStartTime) // 按服务开始时间
-//                 .list();
-//     }
-
-//     @Override
-//     @Transactional
-//     public void cancel(Long id /* , String reason */) { // 可以添加 reason 参数
-//         Reservation reservation = this.getById(id);
-//         if (reservation == null) {
-//             throw new RuntimeException("预约不存在 (ID: " + id + ")");
-//         }
-
-//         // **修改**: 检查服务开始时间
-//         LocalDateTime serviceStartTime = reservation.getServiceStartTime();
-//         // 添加逻辑判断是否允许取消（例如，服务开始前一定时间）
-//         // if (serviceStartTime != null &&
-//         // serviceStartTime.isBefore(LocalDateTime.now().plusHours(24))) {
-//         // throw new RuntimeException("距离服务开始不足24小时，无法在线取消");
-//         // }
-
-//         // 检查是否已经是最终状态，避免重复操作
-//         String currentStatus = reservation.getStatus();
-//         if ("COMPLETED".equalsIgnoreCase(currentStatus) ||
-//                 "CANCELLED_USER".equalsIgnoreCase(currentStatus) ||
-//                 "CANCELLED_PROVIDER".equalsIgnoreCase(currentStatus) ||
-//                 "已取消".equalsIgnoreCase(currentStatus)) // 包含旧状态以兼容
-//         {
-//             // 可以选择静默处理或抛出异常
-//             System.out.println("预约 (ID: " + id + ") 已处于最终状态 (" + currentStatus + ")，无需取消。");
-//             return; // 或者 throw new IllegalStateException("预约已完成或已取消");
-//         }
-
-//         reservation.setStatus("CANCELLED_USER"); // 更新为明确的取消状态
-//         // **新增**: 设置取消原因 (如果提供了)
-//         // reservation.setCancellationReason(reason);
-
-//         // updatedAt 会自动更新
-
-//         boolean updated = this.updateById(reservation);
-//         if (!updated) {
-//             throw new RuntimeException("更新预约状态到数据库失败");
-//         }
-
-//         // TODO: 触发后续操作，例如通知服务商，处理退款逻辑等
-//     }
-
-//     // 检查宠物是否符合服务要求 (方法内部逻辑保持不变)
-//     private void checkPetEligibility(Pets pet, ServiceItem serviceItem) {
-//         // ... (内部逻辑不变) ...
-//         // 疫苗要求
-//         if (StringUtils.hasText(serviceItem.getRequiredVaccinations())) {
-//             List<String> requiredVacs = Arrays.asList(serviceItem.getRequiredVaccinations().split(","));
-//             String petVacs = pet.getVaccinationInfo() == null ? "" : pet.getVaccinationInfo();
-//             for (String required : requiredVacs) {
-//                 if (!petVacs.toLowerCase().contains(required.trim().toLowerCase())) { // 不区分大小写比较
-//                     throw new IllegalArgumentException(String.format("预约失败：该服务要求宠物接种 '%s' 疫苗。", required.trim()));
-//                 }
-//             }
-//         }
-//         // 绝育要求
-//         if (Boolean.TRUE.equals(serviceItem.getRequiresNeutered()) && !Boolean.TRUE.equals(pet.getNeutered())) {
-//             throw new IllegalArgumentException("预约失败：该服务要求宠物已绝育。");
-//         }
-
-//         // 年龄要求
-//         Integer petAgeMonths = pet.getAgeInMonths();
-//         Integer minAgeYears = serviceItem.getMinAge();
-//         Integer maxAgeYears = serviceItem.getMaxAge();
-
-//         if (petAgeMonths != null) {
-//             if (minAgeYears != null && petAgeMonths < minAgeYears * 12) {
-//                 throw new IllegalArgumentException(String.format("预约失败：该服务要求宠物年龄不小于 %d 岁。", minAgeYears));
-//             }
-//             if (maxAgeYears != null && petAgeMonths > maxAgeYears * 12) {
-//                 throw new IllegalArgumentException(String.format("预约失败：该服务要求宠物年龄不大于 %d 岁。", maxAgeYears));
-//             }
-//         } else if (minAgeYears != null || maxAgeYears != null) {
-//             throw new IllegalArgumentException("预约失败：该服务有年龄要求，请先完善宠物年龄信息。");
-//         }
-
-//         // 品种限制
-//         if (StringUtils.hasText(serviceItem.getProhibitedBreeds())) {
-//             List<String> prohibited = Arrays.asList(serviceItem.getProhibitedBreeds().split(","));
-//             if (pet.getSpecies() != null
-//                     && prohibited.stream().anyMatch(p -> p.trim().equalsIgnoreCase(pet.getSpecies()))) {
-//                 throw new IllegalArgumentException(String.format("预约失败：该服务不接受 '%s' 品种。", pet.getSpecies()));
-//             }
-//         }
-//         // 性格要求
-//         if (StringUtils.hasText(serviceItem.getTemperamentRequirements())) {
-//             if ("仅限友好".equals(serviceItem.getTemperamentRequirements())
-//                     && pet.getTemperament() != null
-//                     && !pet.getTemperament().toLowerCase().contains("友好")) { // 不区分大小写
-//                 throw new IllegalArgumentException("预约失败：该服务仅限性格友好的宠物。");
-//             }
-//         }
-//     }
-// }
 
 @Service
 @Slf4j // 添加日志记录器
@@ -276,7 +48,12 @@ public class ReservationServiceImpl
     @Autowired
     private UserService userService;
     @Autowired
-    private ReservationMapper reservationMapper; // 注入Mapper用于复杂查询
+    private ReservationMapper reservationMapper;
+    @Autowired
+    private NotificationService notificationService; // 用于持久化通知
+
+    @Autowired
+    private WebNotificationService webNotificationService;
 
     @Autowired
     private ServiceItemService serviceItemService;
@@ -513,13 +290,79 @@ public class ReservationServiceImpl
     @Transactional
     public Reservation completeReservationByProvider(Long reservationId, Long providerId) {
         Reservation reservation = getAndCheckProviderReservation(reservationId, providerId);
-        // 假设只有已确认的预约才能被标记为完成
-        if (!"CONFIRMED".equalsIgnoreCase(reservation.getStatus())) {
-            throw new IllegalStateException("只有已确认的预约才能被标记为完成");
+        if (!"CONFIRMED".equalsIgnoreCase(reservation.getStatus())
+                && !"PAID".equalsIgnoreCase(reservation.getStatus())) { // 允许从 PAID 状态完成
+            throw new IllegalStateException("只有已确认或已支付的预约才能被标记为完成");
         }
-        reservation.setStatus("COMPLETED");
-        this.updateById(reservation);
-        // TODO: 触发订单结算、评价邀请等
+        reservation.setStatus("COMPLETED"); // 标记为已完成
+        reservation.setServiceEndTime(LocalDateTime.now()); // 可以更新实际服务完成时间
+        reservation.setUpdatedAt(LocalDateTime.now());
+        boolean updated = this.updateById(reservation);
+
+        if (updated) {
+            log.info("Reservation ID {} has been marked as COMPLETED by provider ID {}.", reservationId, providerId);
+
+            // TODO: 触发订单结算逻辑 (如果适用)
+
+            // 发送通知给用户，提示可以评价
+            Users user = userService.getById(reservation.getUserId());
+            ServiceItem serviceItem = serviceItemService.getById(reservation.getServiceId());
+            String serviceName = (serviceItem != null) ? serviceItem.getName() : "您预约的服务";
+            String petName = "";
+            if (reservation.getPetId() != null) {
+                Pets pet = petMapper.selectById(reservation.getPetId());
+                if (pet != null) {
+                    petName = "您的宠物 " + pet.getName() + " 的";
+                }
+            }
+
+            if (user != null) {
+                String title = "服务已完成，期待您的评价！";
+                String content = String.format("尊敬的%s，%s“%s”已完成。感谢您的惠顾，期待您对本次服务做出评价！",
+                        user.getName(), petName, serviceName);
+
+                // 1. 持久化通知到数据库
+                Notifications dbNotification = new Notifications();
+                dbNotification.setUserId(user.getId().intValue()); // 注意类型转换
+                dbNotification.setType("review_invitation");
+                dbNotification.setTitle(title);
+                dbNotification.setContent(content);
+                dbNotification.setLevel("info");
+                // data可以包含跳转链接或相关ID
+                dbNotification.setData(Map.of(
+                        "reservationId", reservation.getId(),
+                        "serviceItemId", reservation.getServiceId() // 评价是针对 serviceItem
+                // "reviewPageUrl", "/my-orders" // 或直接到评价页面的链接
+                ));
+                dbNotification.setIsBroadcast(false);
+                dbNotification.setCreatedAt(LocalDateTime.now());
+                dbNotification.setSentAt(LocalDateTime.now());
+                try {
+                    notificationService.saveNotification(dbNotification);
+                    log.info("Review invitation notification saved for user ID: {}", user.getId());
+                } catch (Exception e) {
+                    log.error("Failed to save review invitation notification for user ID {}: {}", user.getId(),
+                            e.getMessage());
+                }
+
+                // 2. 通过 WebSocket 发送实时通知 (如果用户在线)
+                WebSocketMessageDTO<Map<String, Object>> wsMessage = new WebSocketMessageDTO<>(
+                        "review_invitation",
+                        title,
+                        content,
+                        System.currentTimeMillis(),
+                        "info",
+                        Map.of(
+                                "reservationId", reservation.getId(),
+                                "serviceItemId", reservation.getServiceId()));
+                // webNotificationService.sendMessageToUser(user.getId(), wsMessage); // 假设有此方法
+                // 或者如果 WebSocketServer 能根据 userId 推送
+                // NotificationWebSocketServer.sendObjectToUser(user.getId().toString(),
+                // wsMessage);
+                // 当前的 NotificationWebSocketServer.sendObjectInfo 是群发，需要一个单发逻辑
+                log.info("Sent (or attempted to send) real-time review invitation to user ID: {}", user.getId());
+            }
+        }
         return reservation;
     }
 

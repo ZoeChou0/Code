@@ -1,7 +1,7 @@
 <template>
   <el-container class="provider-layout">
     <el-aside width="200px" class="provider-aside">
-      <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" router :collapse="isCollapse">
+      <!-- <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" router :collapse="isCollapse">
         <el-menu-item index="/provider/dashboard">
           <el-icon><DataLine /></el-icon>
           <span>服务商中心</span>
@@ -22,7 +22,7 @@
           <el-icon><SwitchButton /></el-icon>
           <span>退出登录</span>
         </el-menu-item>
-      </el-menu>
+      </el-menu> -->
       <el-button @click="toggleCollapse" class="collapse-button">
         <el-icon v-if="isCollapse">
           <Expand />

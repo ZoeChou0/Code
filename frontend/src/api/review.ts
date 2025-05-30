@@ -46,5 +46,9 @@ export function getAverageRatingByService(serviceItemId: number): Promise<Backen
   });
 }
 
-// 可选：如果需要根据预约ID获取评价 (后端目前没有此接口)
-// export function getReviewByReservation(reservationId: number): Promise<BackendResult<Review | null>> { ... }
+export function getReviewByReservation(reservationId: number): Promise<BackendResult<Review | null>> {
+  return request<BackendResult<Review | null>>({
+    url: `/reviews/by-reservation/${reservationId}`,
+    method: 'get'
+  });
+}

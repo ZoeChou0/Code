@@ -85,7 +85,7 @@
           <div class="avatar-upload-wrapper">
             <el-upload
               class="avatar-uploader"
-              action="http://localhost:8080/api/upload"
+              action="/api/upload"
               :show-file-list="false"
               :on-success="handleUploadSuccess"
               :before-upload="beforeUpload"

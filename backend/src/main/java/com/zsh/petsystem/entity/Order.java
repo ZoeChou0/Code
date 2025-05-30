@@ -22,7 +22,7 @@ public class Order {
     private BigDecimal amount;
     private String status;
     private LocalDateTime createdAt;
-    // 根据需要添加 payTime, completeTime 等字段及其 @TableField 映射
+
     @TableField("pay_time")
     private LocalDateTime payTime;
     @TableField("complete_time")
@@ -30,5 +30,8 @@ public class Order {
 
     @TableField("alipay_trade_no")
     private String alipayTradeNo;
+
+    @TableField("review_id")
+    private Long reviewId;
 
 }

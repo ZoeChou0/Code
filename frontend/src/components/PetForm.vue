@@ -387,6 +387,7 @@ if (!userId) {
               class="avatar-uploader"
               action="/api/upload"
               :show-file-list="false"
+              :headers="uploadHeaders" 
               :on-success="handleAvatarSuccess"
               :on-error="handleAvatarError"
               :before-upload="beforeAvatarUpload"
@@ -579,33 +580,55 @@ if (!userId) {
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
-import { ElForm, ElMessage } from 'element-plus';
+import { ref, reactive, computed, onMounted } from 'vue'; // 建议添加 onMounted 如果需要在编辑模式下初始化
+import {
+  ElForm,
+  ElMessage,
+  ElInput,
+  ElInputNumber,
+  ElRadioGroup,
+  ElRadio,
+  ElCheckbox,
+  ElSelect,
+  ElOption,
+  ElButton,
+  ElUpload,
+  ElIcon,
+  ElDivider,
+  ElRow,
+  ElCol,
+  ElCard,
+  type FormInstance, // 用于 ElForm 实例类型
+  type FormItemRule, // 用于表单规则类型
+  type UploadProps,  // 【添加】用于上传组件回调类型
+  type UploadRawFile // 【添加】用于 beforeUpload 的文件类型
+} from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import { addPet, updatePet } from '@/api/pet';
-import type { Pet } from '@/api/pet';
+import type { Pet } from '@/api/pet'; // Pet 接口应包含所有字段，包括 id 和 userId
 import { useUserStore } from '@/stores/user';
+import type { BackendResult } from '@/types/api'; // 假设后端上传接口也返回 BackendResult
 
 const userStore = useUserStore();
-const petFormRef = ref<InstanceType<typeof ElForm>>();
+const petFormRef = ref<FormInstance>(); // 使用 FormInstance 类型
 const isSubmitting = ref(false);
 const uploading = ref(false);
 
 interface Props {
-  petData?: Pet | null;
+  petData?: Pet | null; // 宠物数据，用于编辑模式
 }
 const props = defineProps<Props>();
-// 运行时写法，不使用 TS 元组泛型
 const emit = defineEmits(['submitSuccess', 'cancel']);
 
+// 表单数据模型
 const formData = reactive({
-  id: undefined as number|undefined,
+  id: undefined as number | undefined,
   name: '',
-  species: 'Dog' as 'Dog'|'Cat',
-  ageYears: 0,
-  ageMonths: 0,
-  gender: 'Male' as 'Male'|'Female',
-  weight: undefined as number|undefined,
+  species: 'Dog' as 'Dog' | 'Cat',
+  ageYears: 0, // API 中是 ageInYears
+  ageMonths: 0, // API 中是 ageInMonths
+  gender: 'Male' as 'Male' | 'Female',
+  weight: undefined as number | undefined,
   neutered: false,
   photoUrl: '',
   description: '',
@@ -613,156 +636,199 @@ const formData = reactive({
   allergies: '',
   medicalNotes: '',
   temperament: '',
-  energyLevel: 'Moderate' as 'High'|'Moderate'|'Low',
-  feedingSchedule: undefined as string|undefined,
+  energyLevel: 'Moderate' as 'High' | 'Moderate' | 'Low',
+  feedingSchedule: '' as string, // 初始化为空字符串或 undefined
   feedingInstructions: '',
-  pottyBreakFrequency: undefined as string|undefined,
+  pottyBreakFrequency: '' as string, // 初始化为空字符串或 undefined
   pottyBreakInstructions: '',
-  aloneTimeTolerance: undefined as string|undefined,
+  aloneTimeTolerance: '' as string, // 初始化为空字符串或 undefined
 });
 
-const formRules = reactive<Record<string, import('element-plus').FormItemRule[]>>({
+// 表单验证规则
+const formRules = reactive<Record<string, FormItemRule[]>>({
   name: [{ required: true, message: '请输入宠物昵称', trigger: 'blur' }],
   species: [{ required: true, message: '请选择种类', trigger: 'change' }],
-  ageYears: [{ type: 'number', min: 0, message: '请输入有效岁数', trigger: 'blur' }],
-  ageMonths: [{ type: 'number', min: 0, max: 11, message: '请输入有效月数', trigger: 'blur' }],
+  ageYears: [
+    { type: 'number', message: '岁数必须是数字', trigger: 'blur' },
+    { validator: (rule, value, callback) => {
+        if (value < 0) {
+          callback(new Error('岁数不能为负'));
+        } else if (value > 50) {
+          callback(new Error('岁数不能超过50'));
+        } else {
+          callback();
+        }
+      }, trigger: 'blur' }
+  ],
+  ageMonths: [
+    { type: 'number', message: '月数必须是数字', trigger: 'blur' },
+    { validator: (rule, value, callback) => {
+        if (value < 0) {
+          callback(new Error('月数不能为负'));
+        } else if (value > 11) {
+          callback(new Error('月数不能超过11'));
+        } else {
+          callback();
+        }
+      }, trigger: 'blur' }
+  ],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
+  weight: [{ type: 'number', min: 0, message: '体重不能为负', trigger: 'blur', transform: (value) => Number(value) || 0 }],
 });
 
 const isEditMode = computed(() => !!props.petData?.id);
-if (props.petData) {
-  const d = props.petData;
-  formData.id = d.id;
-  formData.name = d.name;
-  formData.species = d.species;
-  formData.ageYears = d.ageInYears;
-  formData.ageMonths = d.ageInMonths;
-  formData.gender = d.gender;
-  formData.weight = d.weight;
-  formData.neutered = d.neutered;
-  formData.photoUrl = d.photoUrl;
-  formData.description = d.description;
-  formData.vaccinationInfo = d.vaccinationInfo;
-  formData.allergies = d.allergies;
-  formData.medicalNotes = d.medicalNotes;
-  formData.temperament = d.temperament;
-  formData.energyLevel = d.energyLevel;
-  formData.feedingSchedule = d.feedingSchedule;
-  formData.feedingInstructions = d.feedingInstructions;
-  formData.pottyBreakFrequency = d.pottyBreakFrequency;
-  formData.pottyBreakInstructions = d.pottyBreakInstructions;
-  formData.aloneTimeTolerance = d.aloneTimeTolerance;
-}
 
-const handleAvatarSuccess = (res: any) => {
-  uploading.value = false;
-  if (res.code === 200 && res.data?.url) {
-    formData.photoUrl = res.data.url;
-    ElMessage.success('图片上传成功!');
+// 初始化表单数据 (用于编辑模式)
+const initializeForm = (data: Pet | null | undefined) => {
+  if (data) {
+    formData.id = data.id;
+    formData.name = data.name;
+    formData.species = data.species;
+    formData.ageYears = data.ageInYears; // 注意字段名匹配
+    formData.ageMonths = data.ageInMonths; // 注意字段名匹配
+    formData.gender = data.gender;
+    formData.weight = data.weight;
+    formData.neutered = data.neutered;
+    formData.photoUrl = data.photoUrl;
+    formData.description = data.description;
+    formData.vaccinationInfo = data.vaccinationInfo;
+    formData.allergies = data.allergies;
+    formData.medicalNotes = data.medicalNotes;
+    formData.temperament = data.temperament;
+    formData.energyLevel = data.energyLevel;
+    formData.feedingSchedule = data.feedingSchedule;
+    formData.feedingInstructions = data.feedingInstructions;
+    formData.pottyBreakFrequency = data.pottyBreakFrequency;
+    formData.pottyBreakInstructions = data.pottyBreakInstructions;
+    formData.aloneTimeTolerance = data.aloneTimeTolerance;
   } else {
-    ElMessage.error(res.message || '上传失败');
+     resetFormInternal(); // 如果没有 petData (例如直接访问添加页)，确保是初始状态
   }
 };
-const handleAvatarError = () => {
+
+// onMounted 或 watch 来初始化表单，确保 props.petData 加载后表单能正确填充
+onMounted(() => {
+  if (isEditMode.value && props.petData) {
+    initializeForm(props.petData);
+  }
+});
+// 如果 petData 可能会异步变化，可以添加一个 watch
+// import { watch } from 'vue';
+// watch(() => props.petData, (newData) => {
+//   initializeForm(newData);
+// });
+
+
+const uploadHeaders = ref({
+  Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+});
+
+const handleAvatarSuccess: UploadProps['onSuccess'] = (
+  response: BackendResult<{ url: string }>, // 明确 response 类型
+  // uploadFile: UploadFile // UploadFile 类型也从 element-plus 导入
+) => {
   uploading.value = false;
-  ElMessage.error('上传失败，请重试');
+  if (response.code === 200 && response.data?.url) {
+    formData.photoUrl = response.data.url;
+    ElMessage.success('图片上传成功!');
+  } else {
+    ElMessage.error(response.message || '图片上传失败!');
+  }
 };
-const beforeAvatarUpload = (file: File) => {
+
+const handleAvatarError: UploadProps['onError'] = (error: Error /*, uploadFile: UploadFile, uploadFiles: UploadFiles */) => {
+  uploading.value = false;
+  let errorMessage = '图片上传失败，请重试';
+   if (error.message) { // error 通常是 Error 对象
+    try {
+      // Axios 的错误对象通常在 error.response.data 中包含服务器返回的JSON
+      // 或者 error.message 可能已经是序列化的JSON字符串 (如果请求库这样处理)
+      // 这里的解析逻辑取决于您的 HTTP 客户端和错误处理方式
+      const parsedError = JSON.parse(error.message); // 尝试解析
+      if (parsedError.message) {
+        errorMessage = parsedError.message;
+      } else if (parsedError.code && parsedError.data) { // 如果是 BackendResult 结构
+        errorMessage = parsedError.data || '上传失败';
+      }
+    } catch (e) {
+      // 如果解析失败，使用 error.message
+      if (error.message.includes('Network Error')) {
+        errorMessage = '网络错误，请检查连接。';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = '上传超时。';
+      } else if (error.message.includes('status code 401')) {
+        errorMessage = '未授权，请重新登录后尝试。';
+      } else if (error.message.includes('status code 413')) {
+        errorMessage = '文件过大，请上传小于2MB的图片。';
+      }
+    }
+  }
+  ElMessage.error(errorMessage);
+};
+
+const beforeAvatarUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile) => {
   uploading.value = true;
-  const isImg = file.type === 'image/jpeg' || file.type === 'image/png';
-  const isLt2M = file.size / 1024 / 1024 < 2;
+  const allowedTypes = ['image/jpeg', 'image/png'];
+  const isImg = allowedTypes.includes(rawFile.type);
+  const isLt2M = rawFile.size / 1024 / 1024 < 2;
+
   if (!isImg) {
-    ElMessage.error('只能上传 JPG/PNG 格式');
+    ElMessage.error('只能上传 JPG/PNG 格式的图片!');
     uploading.value = false;
     return false;
   }
   if (!isLt2M) {
-    ElMessage.error('大小不能超过 2MB');
+    ElMessage.error('上传图片大小不能超过 2MB!');
     uploading.value = false;
     return false;
   }
   return true;
 };
 
-const resetForm = () => {
-  petFormRef.value?.resetFields();
+const resetFormInternal = () => { // 内部重置逻辑
   Object.assign(formData, {
-    id: undefined,
-    name: '',
-    species: 'Dog',
-    ageYears: 0,
-    ageMonths: 0,
-    gender: 'Male',
-    weight: undefined,
-    neutered: false,
-    photoUrl: '',
-    description: '',
-    vaccinationInfo: '',
-    allergies: '',
-    medicalNotes: '',
-    temperament: '',
-    energyLevel: 'Moderate',
-    feedingSchedule: undefined,
-    feedingInstructions: '',
-    pottyBreakFrequency: undefined,
-    pottyBreakInstructions: '',
-    aloneTimeTolerance: undefined,
+    id: undefined, name: '', species: 'Dog', ageYears: 0, ageMonths: 0, gender: 'Male',
+    weight: undefined, neutered: false, photoUrl: '', description: '', vaccinationInfo: '',
+    allergies: '', medicalNotes: '', temperament: '', energyLevel: 'Moderate',
+    feedingSchedule: '', feedingInstructions: '', pottyBreakFrequency: '',
+    pottyBreakInstructions: '', aloneTimeTolerance: '',
   });
 };
 
-const submitForm = async () => {
-  console.log('submitForm 函数被点击调用了！');
-  console.log('检查 petFormRef:', petFormRef.value);
-  console.log('检查 isSubmitting:', isSubmitting.value);
 
+const resetForm = () => {
+  petFormRef.value?.resetFields(); // Element Plus 的重置，会重置到初始值
+  resetFormInternal(); // 强制重置为我们的默认初始值
+  emit('cancel'); // 如果有取消事件需要通知父组件
+};
+
+const submitForm = async () => {
   if (!petFormRef.value) {
-    console.error('错误：无法获取到 el-form 的引用 (petFormRef)!');
-    ElMessage.error('无法提交，表单组件未正确加载。');
+    ElMessage.error('表单引用未就绪!');
     return;
   }
-  if (isSubmitting.value) {
-    console.warn('submitForm 提前退出：isSubmitting 为 true');
-    return;
-  }
+  if (isSubmitting.value) return;
 
   try {
-    console.log('尝试执行 validate...');
     await petFormRef.value.validate();
-    console.log('validate 通过');
     isSubmitting.value = true;
 
-    // 调试日志，检查用户状态
-    console.log('isEditMode:', isEditMode.value);
-    console.log('User Info (from store):', JSON.stringify(userStore.userInfo)); // 使用 JSON.stringify 查看对象内容
-    console.log('User Token (from store):', userStore.token);
-
     const userId = userStore.userInfo?.id;
-    console.log('Extracted userId:', userId);
-
-    // 统一的登录状态检查
-    if (!userStore.token) { // 后端 API 通常需要 token 进行用户识别和授权
-        console.error('CONDITION MET: User token is missing. Returning...');
-        ElMessage.error('请先登录或登录状态已失效');
-        isSubmitting.value = false;
-        return;
-    }
-    // 对于编辑操作，userId 是必须的；对于添加操作，后端会从token获取，但前端也需要它来构造某些对象
-    if (!userId) {
-        console.error('CONDITION MET: User ID is missing from store. Returning...');
-        ElMessage.error('无法获取用户信息，请尝试重新登录');
-        isSubmitting.value = false;
-        return;
+    if (!userStore.token || !userId) {
+      ElMessage.error('用户未登录或信息不完整，请重新登录。');
+      isSubmitting.value = false;
+      return;
     }
 
-    console.log('Token and userId checks passed. Proceeding to prepare data.');
-
-    const baseData = {
+    // 从 formData 准备提交给 API 的数据
+    // Pet 接口定义了所有字段，后端 DTO (PetCreateDTO, PetUpdateDTO) 可能只包含部分
+    const apiPayload = {
       name: formData.name,
       species: formData.species,
       gender: formData.gender,
-      ageInYears: formData.ageYears,
-      ageInMonths: formData.ageMonths,
-      weight: formData.weight ?? 0, // 后端 PetCreateDTO 定义了这些字段，不含 userId
+      ageInYears: formData.ageYears, // 后端 Pet 实体和 DTO 使用的是 ageInYears
+      ageInMonths: formData.ageMonths, // 后端 Pet 实体和 DTO 使用的是 ageInMonths
+      weight: formData.weight ?? 0,
       neutered: formData.neutered,
       photoUrl: formData.photoUrl,
       description: formData.description,
@@ -771,80 +837,77 @@ const submitForm = async () => {
       medicalNotes: formData.medicalNotes,
       temperament: formData.temperament,
       energyLevel: formData.energyLevel,
-      feedingSchedule: formData.feedingSchedule || '',
-      feedingInstructions: formData.feedingInstructions || '',
-      pottyBreakFrequency: formData.pottyBreakFrequency || '',
-      pottyBreakInstructions: formData.pottyBreakInstructions || '',
-      aloneTimeTolerance: formData.aloneTimeTolerance || '',
+      feedingSchedule: formData.feedingSchedule,
+      feedingInstructions: formData.feedingInstructions,
+      pottyBreakFrequency: formData.pottyBreakFrequency,
+      pottyBreakInstructions: formData.pottyBreakInstructions,
+      aloneTimeTolerance: formData.aloneTimeTolerance,
     };
 
     if (isEditMode.value) {
-      console.log('Executing updatePet logic...');
-      if (formData.id == null) { // 检查 formData.id 是否存在
-        console.error('Missing pet ID in edit mode.');
+      if (formData.id == null) {
         ElMessage.error('缺少宠物ID，无法更新');
         isSubmitting.value = false;
         return;
       }
-      // Pet 类型通常包含 id 和 userId
-      const updatePayload: Pet = { 
-        id: formData.id, 
-        userId: userId, // 从 store 获取的 userId
-        ...baseData 
+      const updateData: Pet = {
+        id: formData.id,
+        userId: userId, // userId 必须从 UserStore 获取
+        ...apiPayload
       };
-      console.log('Update payload:', updatePayload);
-      const res = await updatePet(updatePayload);
+      const res = await updatePet(updateData);
       if (res.code === 200) {
         ElMessage.success('宠物信息更新成功!');
-        emit('submitSuccess', res.data); // 触发成功事件
+        emit('submitSuccess', res.data || updateData); // 返回更新后的数据
       } else {
         ElMessage.error(res.message || '更新宠物信息失败');
       }
     } else {
-      // --- 添加宠物的逻辑 ---
-      console.log('Executing addPet logic...');
-      // addPet API 期望的参数类型是 Omit<Pet, 'id' | 'userId'>
-      // 所以 baseData 本身就是符合的，因为它不包含 id 和 userId
-      const addPayload: Omit<Pet, 'id' | 'userId'> = baseData;
-      console.log('Add payload:', addPayload);
-      const res = await addPet(addPayload);
+      // addPet API 期望 Omit<Pet, 'id' | 'userId'>
+      // 后端 PetServiceImpl 会从当前登录用户设置 userId
+      const addData: Omit<Pet, 'id' | 'userId'> = apiPayload;
+      const res = await addPet(addData);
       if (res.code === 200) {
         ElMessage.success('宠物添加成功!');
-        emit('submitSuccess', res.data); // 触发成功事件
-        resetForm(); // 添加成功后重置表单
+        emit('submitSuccess', res.data);
+        resetForm();
       } else {
         ElMessage.error(res.message || '添加宠物失败');
       }
     }
-  } catch (error: any) { // 这通常会捕获 validate() 失败的 Promise.reject
-    console.error('表单提交或验证过程中发生错误:', error);
-    // ElMessage.error(error.message || '提交失败，请检查表单是否正确填写'); // validate 失败时 el-form 会自动提示
+  } catch (error) { // 通常是表单验证失败
+    console.log('表单验证失败或提交出错:', error);
+    // ElMessage.error('请检查表单填写是否正确'); // el-form 自动处理验证错误提示
   } finally {
     isSubmitting.value = false;
-    console.log('Submission process finished.');
   }
 };
-
-
 </script>
 
 <style scoped lang="scss">
 .pet-form {
   max-width: 800px;
   margin: 0 auto;
+  padding-bottom: 20px; /* 给底部按钮一些空间 */
 }
 .card-header {
   font-weight: bold;
   font-size: 1.2em;
+  text-align: center;
 }
 .avatar-uploader .avatar {
   width: 120px;
   height: 120px;
   object-fit: cover;
+  display: block; /* 确保图片是块级元素 */
 }
 .avatar-uploader .el-upload {
   border: 1px dashed var(--el-border-color);
   border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
 }
 .avatar-uploader .el-upload:hover {
   border-color: var(--el-color-primary);
@@ -852,8 +915,15 @@ const submitForm = async () => {
 .el-icon.avatar-uploader-icon {
   font-size: 28px;
   color: #8c939d;
-  width: 120px;
-  height: 120px;
+  width: 120px; /* 与 avatar 尺寸一致 */
+  height: 120px; /* 与 avatar 尺寸一致 */
+  line-height: 120px; /* 垂直居中 */
   text-align: center;
+}
+.el-form-item {
+  margin-bottom: 22px; /* 统一表单项间距 */
+}
+.el-select, .el-input-number {
+  width: 100%; /* 让选择框和数字输入框充满其容器 */
 }
 </style>

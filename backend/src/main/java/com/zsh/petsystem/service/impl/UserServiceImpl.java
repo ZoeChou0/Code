@@ -1,189 +1,3 @@
-// package com.zsh.petsystem.service.impl;
-
-// import java.util.List;
-// import java.util.Objects;
-// import java.time.LocalDate;
-
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.boot.autoconfigure.security.SecurityProperties.User;
-// import org.springframework.stereotype.Service;
-// import org.springframework.transaction.annotation.Transactional;
-// import org.springframework.util.StringUtils;
-
-// import com.zsh.petsystem.dto.UserUpdateProfileDTO;
-
-// import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-// import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-// import com.zsh.petsystem.mapper.UserMapper;
-// import com.zsh.petsystem.model.Users;
-// import com.zsh.petsystem.service.UserService;
-// import com.zsh.petsystem.dto.UserUpdateProfileDTO;
-// import org.springframework.security.crypto.password.PasswordEncoder;
-
-// @Service
-// public class UserServiceImpl
-//     extends ServiceImpl<UserMapper, Users>
-//     implements UserService {
-
-//   private final PasswordEncoder passwordEncoder;
-
-//   public UserServiceImpl(PasswordEncoder passwordEncoder) {
-//     this.passwordEncoder = passwordEncoder;
-//   }
-
-//   @Override
-//   public Users saveUser(Users user) {
-//     this.save(user);
-//     return user;
-//   }
-
-//   @Override
-//   public List<Users> getAllUsers() {
-//     return this.list();
-//   }
-
-//   @Override
-//   public boolean existByEmail(String email) {
-//     // 使用 LambdaQueryWrapper 进行类型安全的查询
-//     LambdaQueryWrapper<Users> wrapper = new LambdaQueryWrapper<>();
-//     wrapper.eq(Users::getEmail, email);
-//     // 使用 ServiceImpl 提供的 count 方法
-//     return this.count(wrapper) > 0;
-//   }
-
-//   @Override
-//   public boolean existByPhone(String phone) {
-//     // 使用 LambdaQueryWrapper 进行类型安全的查询
-//     LambdaQueryWrapper<Users> wrapper = new LambdaQueryWrapper<>();
-//     wrapper.eq(Users::getPhone, phone);
-//     // 使用 ServiceImpl 提供的 count 方法
-//     return this.count(wrapper) > 0;
-//   }
-
-//   @Override
-//   public Users findByEmail(String email) {
-//     // 使用 LambdaQueryWrapper 进行类型安全的查询
-//     LambdaQueryWrapper<Users> wrapper = new LambdaQueryWrapper<>();
-//     wrapper.eq(Users::getEmail, email);
-//     return this.getOne(wrapper);
-//   }
-
-//   @Override
-//   public Users getById(Long id) {
-//     return super.getById(id); // 调用 ServiceImpl 中的方法
-//   }
-
-//   @Override
-//   public List<Users> findPendingQualificationProviders() {
-//     LambdaQueryWrapper<Users> wrapper = new LambdaQueryWrapper<>();
-//     wrapper.eq(Users::getRole, "provider");
-//     wrapper.eq(Users::getQualificationStatus, "PENDING_REVIEW");
-//     return this.list(wrapper);
-//   }
-
-//   @Override
-//   public Users updateUserProfile(Long userId, UserUpdateProfileDTO dto) {
-//     Users existingUser = this.getById(userId);
-//     if (existingUser == null) {
-//       throw new RuntimeException("用户不存在"); // 或者返回 null 或其他错误处理
-//     }
-
-//     boolean changed = false;
-//     if (dto.getName() != null && !dto.getName().equals(existingUser.getName())) {
-//       existingUser.setName(dto.getName());
-//       changed = true;
-//     }
-//     if (dto.getPhone() != null && !dto.getPhone().equals(existingUser.getPhone())) {
-//       // TODO: 可以添加手机号格式验证，或检查手机号是否已被他人注册
-//       existingUser.setPhone(dto.getPhone());
-//       changed = true;
-//     }
-
-//     // 地址行1
-//     if (dto.getAddressLine1() != null && !Objects.equals(dto.getAddressLine1(), existingUser.getAddressLine1())) {
-//       existingUser.setAddressLine1(dto.getAddressLine1());
-//       changed = true;
-//     }
-//     // 城市
-//     if (dto.getCity() != null && !Objects.equals(dto.getCity(), existingUser.getCity())) {
-//       existingUser.setCity(dto.getCity());
-//       changed = true;
-//     }
-//     // 省/州
-//     if (dto.getState() != null && !Objects.equals(dto.getState(), existingUser.getState())) {
-//       existingUser.setState(dto.getState());
-//       changed = true;
-//     }
-//     // 邮编
-//     if (dto.getZipCode() != null && !Objects.equals(dto.getZipCode(), existingUser.getZipCode())) {
-//       existingUser.setZipCode(dto.getZipCode());
-//       changed = true;
-//     }
-//     // 生日
-//     if (dto.getBirthday() != null && !Objects.equals(dto.getBirthday(), existingUser.getBirthday())) {
-//       existingUser.setBirthday(dto.getBirthday());
-//       changed = true;
-//     }
-//     // 头像URL
-//     if (dto.getProfilePhotoUrl() != null
-//         && !Objects.equals(dto.getProfilePhotoUrl(), existingUser.getProfilePhotoUrl())) {
-//       existingUser.setProfilePhotoUrl(dto.getProfilePhotoUrl());
-//       changed = true;
-//     }
-
-//     if (changed) {
-//       this.updateById(existingUser);
-//     }
-//     // 返回更新后的用户信息（同样清除敏感信息）
-//     existingUser.setPassword(null);
-//     return existingUser;
-//   }
-
-//   @Override
-//   @Transactional // 推荐添加事务注解
-//   public void changePassword(Long userId, String currentPassword, String newPassword) {
-//     // 1. 校验输入 (基本非空检查)
-//     if (!StringUtils.hasText(currentPassword) || !StringUtils.hasText(newPassword)) {
-//       throw new IllegalArgumentException("当前密码和新密码都不能为空");
-//     }
-
-//     // 2. 获取用户信息
-//     Users user = this.getById(userId);
-//     if (user == null) {
-//       // 理论上，能调用此接口的用户应该是存在的，但以防万一
-//       throw new RuntimeException("用户不存在");
-//     }
-
-//     // 3. 验证当前密码是否正确
-//     if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-//       throw new RuntimeException("当前密码不正确");
-//     }
-
-//     // 4. (可选) 可以在这里添加新密码复杂度校验
-
-//     // 5. 如果新旧密码相同，可以提示用户无需修改或直接返回成功
-//     if (passwordEncoder.matches(newPassword, user.getPassword())) {
-//       // 可以选择抛出异常提示用户新旧密码不能一样，或者静默成功
-//       // throw new RuntimeException("新密码不能与当前密码相同");
-//       return; // 或者直接返回，表示操作完成（虽然没修改）
-//     }
-
-//     // 6. 对新密码进行哈希加密
-//     String hashedNewPassword = passwordEncoder.encode(newPassword);
-
-//     // 7. 更新用户密码
-//     user.setPassword(hashedNewPassword);
-//     boolean updated = this.updateById(user);
-
-//     // 8. 检查更新是否成功
-//     if (!updated) {
-//       // 记录日志或抛出更具体的异常
-//       throw new RuntimeException("更新密码时数据库操作失败");
-//     }
-//   }
-// }
-
-// src/main/java/com/zsh/petsystem/service/impl/UserServiceImpl.java
 package com.zsh.petsystem.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -192,12 +6,14 @@ import com.zsh.petsystem.dto.UserUpdateProfileDTO;
 import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.mapper.UserMapper;
 import com.zsh.petsystem.service.UserService;
+import com.zsh.petsystem.service.RedisService;
 
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -211,13 +27,27 @@ public class UserServiceImpl
 
   private final PasswordEncoder passwordEncoder;
 
+  @Autowired
+  private RedisService redisService;
+
+  private static final String USER_CACHE_PREFIX = "user:id:";
+  private static final Long USER_CACHE_TIMEOUT_SECONDS = 3600L;
+
   public UserServiceImpl(PasswordEncoder passwordEncoder) {
     this.passwordEncoder = passwordEncoder;
   }
 
   @Override
   public Users saveUser(Users user) {
-    this.save(user);
+    // this.save(user);
+    // return user;
+    boolean saved = this.save(user);
+    if (saved && user.getId() != null) {
+      // 新用户保存成功后，也可以将其加入缓存
+      String cacheKey = USER_CACHE_PREFIX + user.getId();
+      redisService.set(cacheKey, user, USER_CACHE_TIMEOUT_SECONDS);
+      log.info("New user ID: {} saved and cached.", user.getId());
+    }
     return user;
   }
 
@@ -249,7 +79,27 @@ public class UserServiceImpl
 
   @Override
   public Users getById(Long id) {
-    return super.getById(id);
+    if (id == null)
+      return null;
+    String cacheKey = USER_CACHE_PREFIX + id;
+
+    // 1. 尝试从缓存获取
+    Users cachedUser = (Users) redisService.get(cacheKey);
+    if (cachedUser != null) {
+      log.info("Cache hit for user ID: {}", id);
+      return cachedUser;
+    }
+
+    // 2. 缓存未命中，从数据库查询
+    log.info("Cache miss for user ID: {}, fetching from DB.", id);
+    Users userFromDb = super.getById(id); // 调用 MybatisPlus 的 getById
+
+    // 3. 如果从数据库中获取到数据，则存入缓存
+    if (userFromDb != null) {
+      redisService.set(cacheKey, userFromDb, USER_CACHE_TIMEOUT_SECONDS);
+      log.info("User ID: {} cached.", id);
+    }
+    return userFromDb;
   }
 
   @Override
@@ -308,7 +158,13 @@ public class UserServiceImpl
     }
 
     if (changed) {
-      this.updateById(existing);
+      boolean updated = this.updateById(existing); // 更新数据库
+      if (updated) {
+        // 如果更新成功，删除缓存以确保下次读取最新数据
+        String cacheKey = USER_CACHE_PREFIX + userId;
+        redisService.delete(cacheKey);
+        log.info("User ID: {} updated in DB, cache cleared.", userId);
+      }
     }
     // 返回时去掉密码字段
     existing.setPassword(null);

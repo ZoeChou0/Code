@@ -87,4 +87,17 @@ public class OrderController {
             return Result.failed("取消订单时发生内部服务器错误。");
         }
     }
+
+    @GetMapping("/provider/list") // 完整路径为 /orders/provider/list
+    @PreAuthorize("hasRole('PROVIDER')") // 确保只有服务商可以访问
+    public List<OrderViewDTO> getProviderOrders(@CurrentUser Long providerId) {
+        log.info("Provider (User ID: {}) fetching their orders.", providerId);
+        if (providerId == null) {
+            // 理论上 @CurrentUser 和 @PreAuthorize 会处理未认证的情况，但可以加一道保险
+            log.warn("Attempt to fetch provider orders without authenticated provider ID.");
+            throw new RuntimeException("服务商未认证或无法获取ID");
+        }
+        // GlobalResponseAdvice 会将此 List<OrderViewDTO> 自动包装在 Result.success() 中
+        return orderService.getProviderOrdersWithDetails(providerId);
+    }
 }

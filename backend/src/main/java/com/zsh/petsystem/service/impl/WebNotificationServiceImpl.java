@@ -14,7 +14,6 @@ public class WebNotificationServiceImpl implements WebNotificationService {
 
     @Override
     public boolean sendWebBroadcast(String alertContent, String title, Map<String, String> extras) {
-        // 为了兼容旧的 AdminNotifyController 调用，我们在这里构建新的 DTO
         WebSocketMessageDTO<Map<String, String>> message = new WebSocketMessageDTO<>(
                 "system_broadcast", // type
                 title, // title

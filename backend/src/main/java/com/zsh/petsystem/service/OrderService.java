@@ -84,4 +84,6 @@ public interface OrderService extends IService<Order> {
      * @return 分页后的订单视图DTO
      */
     IPage<OrderAdminViewDTO> getAdminOrdersPage(int pageNum, int pageSize, String status);
+
+    List<OrderViewDTO> getProviderOrdersWithDetails(Long providerId);
 }

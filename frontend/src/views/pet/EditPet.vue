@@ -1,8 +1,6 @@
 <template>
   <div class="edit-pet-page">
     <div class="page-header">
-      <h1 class="header-title">编辑宠物信息</h1>
-      <h3 class="header-subtitle">更新您的宠物资料</h3>
     </div>
 
     <div v-if="pageLoading" class="loading-state">

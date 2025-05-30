@@ -13,7 +13,7 @@ import com.zsh.petsystem.mapper.ServiceItemMapper;
 import com.zsh.petsystem.service.ServiceItemService;
 import com.zsh.petsystem.service.UserService;
 import com.zsh.petsystem.util.EmailApi;
-import com.zsh.petsystem.mapper.ServiceItemMapper;
+import com.zsh.petsystem.service.RedisService;
 
 import lombok.extern.slf4j.Slf4j;
 

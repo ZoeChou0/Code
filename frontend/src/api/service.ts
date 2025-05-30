@@ -185,3 +185,10 @@ export function setServiceAvailability(id: number, available: boolean): Promise<
     data: { available } // 后端期望接收的数据格式
   });
 }
+
+export function getServiceDetailById(id: string): Promise<BackendResult<Service>> {
+  return request<BackendResult<Service>>({
+    url: `/services/${id}`, // 对应新后端接口
+    method: 'get'
+  });
+}

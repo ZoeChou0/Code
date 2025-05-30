@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import com.baomidou.mybatisplus.core.metadata.IPage; // 导入 IPage
 
 @RestController
-@RequestMapping("/admin/orders") // Controller 基础路径
+@RequestMapping("/admin/orders")
 @CrossOrigin
 @Slf4j
 @PreAuthorize("hasRole('ADMIN')") // 对整个控制器应用管理员权限
@@ -19,6 +19,7 @@ public class AdminOrderController {
     @Autowired
     private OrderService orderService;
 
+    @GetMapping
     public IPage<OrderAdminViewDTO> list(
             @RequestParam(name = "page", defaultValue = "1") int pageNum,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,

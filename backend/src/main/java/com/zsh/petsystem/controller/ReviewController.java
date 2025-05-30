@@ -1,12 +1,14 @@
 package com.zsh.petsystem.controller;
 
 import com.zsh.petsystem.annotation.CurrentUser; // 导入 @CurrentUser
+import com.zsh.petsystem.common.Result;
 import com.zsh.petsystem.dto.ReviewDTO;
 import com.zsh.petsystem.entity.Review;
 import com.zsh.petsystem.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus; // 导入 HttpStatus
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List; // 确保 List 被导入
@@ -99,6 +101,35 @@ public class ReviewController {
             return ResponseEntity.ok(averageRating); // 保持和原来一致，直接返回 Double
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("获取平均评分失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据预约ID获取用户对该预约的评价 (如果存在)
+     * 
+     * @param reservationId 预约ID
+     * @param currentUserId 当前登录用户ID
+     * @return ResponseEntity 包含评价信息或空结果
+     */
+    @GetMapping("/by-reservation/{reservationId}")
+    @PreAuthorize("isAuthenticated()") // 需要用户登录
+    public ResponseEntity<?> getReviewByReservationId(
+            @PathVariable Long reservationId,
+            @CurrentUser Long currentUserId) {
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户未认证"));
+        }
+        // ReviewService 中需要一个方法来根据 reservationId 和 userId 查找评价
+        // 注意：Review 实体目前是通过 serviceItemId 和 userId 关联的。
+        // 我们需要 ReviewService.findMyReviewForReservation(Long reservationId, Long
+        // userId)
+        Review review = reviewService.findMyReviewForReservation(reservationId, currentUserId);
+
+        if (review != null) {
+            return ResponseEntity.ok(Result.success(review));
+        } else {
+            // 没有找到评价，这不一定是错误，只是表示用户尚未评价
+            return ResponseEntity.ok(Result.success(null, "尚未对该服务进行评价"));
         }
     }
 }

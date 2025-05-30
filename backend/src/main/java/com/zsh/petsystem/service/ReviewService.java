@@ -13,4 +13,6 @@ public interface ReviewService extends IService<Review> {
 
     Double getAverageRating(Long serviceItemId);
 
+    Review findMyReviewForReservation(Long reservationId, Long userId);
+
 }

@@ -26,7 +26,6 @@
               <span class="item-time">{{ formatTime(notification.created_at) }}</span>
             </div>
             <div class="item-content" v-html="sanitizeContent(notification.content)"></div>
-            {/* */}
             <div v-if="notification.data && Object.keys(notification.data).length > 0" class="item-data">
               <el-collapse accordion v-if="shouldShowDetails(notification.type)">
                 <el-collapse-item title="查看详情" :name="notification.id.toString()">

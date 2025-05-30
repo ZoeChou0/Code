@@ -3,11 +3,11 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>我的服务订单</span>
+          <span><el-icon><Document /></el-icon> 我的服务订单</span>
           </div>
       </template>
 
-      <el-table :data="orders" stripe style="width: 100%" v-loading="loading">
+      <el-table :data="displayedOrders" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="订单ID" width="100" />
         <el-table-column prop="reservationId" label="预约ID" width="100" />
         <el-table-column label="服务名称" min-width="180">
@@ -49,8 +49,7 @@
         <el-table-column label="操作" fixed="right" width="150">
           <template #default="scope">
             <el-button
-              v-if="scope.row.status === 'paid' || scope.row.status === '已支付/待服务'"
-              type="success"
+              v-if="canCompleteOrder(scope.row.status)" type="success"
               size="small"
               @click="handleCompleteOrder(scope.row.id)"
                :loading="scope.row.completing"
@@ -62,7 +61,7 @@
       </el-table>
         <el-pagination
         v-if="totalOrders > 0"
-        layout="prev, pager, next, total"
+        layout="prev, pager, next, total, jumper"
         :total="totalOrders"
         :page-size="pageSize"
         :current-page="currentPage"
@@ -74,126 +73,147 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { Order } from '@/api/order'
-import { getProviderOrderList, completeOrder as apiCompleteOrder } from '@/api/order'
-import type { BackendResult } from '@/types/api'
+import { ref, onMounted, computed } from 'vue'; // 确保导入 computed
+import { ElMessage, ElMessageBox, ElCard, ElTable, ElTableColumn, ElTag, ElButton, ElPagination, ElIcon } from 'element-plus';
+import { Document } from '@element-plus/icons-vue';
+import { getProviderOrderList, completeOrder as apiCompleteOrder } from '@/api/order';
+import type { BackendResult } from '@/types/api';
+import type { OrderViewDTO } from '@/api/order';
 
-interface ProviderOrder extends Order {
-  serviceName?: string;
-  petName?: string;
-  userName?: string; // 客户名称
+interface DisplayOrder extends OrderViewDTO {
   completing?: boolean;
+  userName?: string;
 }
 
-const orders = ref<ProviderOrder[]>([])
-const loading = ref(false)
-const currentPage = ref(1)
-const pageSize = ref(10)
-const totalOrders = ref(0)
+const allOrders = ref<DisplayOrder[]>([]);
+const loading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalOrders = ref(0);
+
+const displayedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return allOrders.value.slice(start, end);
+});
 
 const fetchOrders = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const res: BackendResult<Order[]> = await getProviderOrderList(/* { page: currentPage.value, size: pageSize.value } */)
+    const res: BackendResult<OrderViewDTO[]> = await getProviderOrderList();
     if (res.code === 200 && res.data) {
-      orders.value = res.data.map(order => ({ ...order, completing: false }));
-      totalOrders.value = res.data.length; // 假设 res.data 就是当前页的数组
+      allOrders.value = res.data.map(order => ({ ...order, completing: false }));
+      totalOrders.value = allOrders.value.length;
     } else {
-      ElMessage.error(res.message || '获取订单列表失败')
+      ElMessage.error(res.message || '获取订单列表失败');
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '获取订单列表请求失败')
+    ElMessage.error(error.message || '获取订单列表请求失败');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleCompleteOrder = async (orderId: number) => {
-  const order = orders.value.find(o => o.id === orderId);
+  const order = allOrders.value.find(o => o.id === orderId);
   if (!order) return;
 
   try {
-    await ElMessageBox.confirm('确定要将此订单标记为已完成吗？', '提示', {
-      confirmButtonText: '确定',
+    await ElMessageBox.confirm('确定要将此订单标记为已完成吗？服务完成后，客户可能会对本次服务进行评价。', '确认完成服务', {
+      confirmButtonText: '确定完成',
       cancelButtonText: '取消',
       type: 'info'
     });
 
     order.completing = true;
-    const res: BackendResult<null> = await apiCompleteOrder(orderId); // 调用标记完成API
+    const res: BackendResult<OrderViewDTO | null> = await apiCompleteOrder(orderId);
     if (res.code === 200) {
-      ElMessage.success('订单已标记为完成');
-      // 更新列表或该订单的状态
-      const index = orders.value.findIndex(o => o.id === orderId);
-      if (index !== -1) {
-        orders.value[index].status = 'completed'; // 或后端返回的实际状态
+      ElMessage.success('订单已成功标记为完成！');
+      if (res.data) {
+          const index = allOrders.value.findIndex(o => o.id === orderId);
+          if (index !== -1) {
+            allOrders.value[index] = { ...allOrders.value[index], ...res.data, completing: false };
+          }
+      } else {
+        await fetchOrders();
       }
     } else {
       ElMessage.error(res.message || '标记完成失败');
     }
-  } catch (error: any) {
-     if (error !== 'cancel') {
-        ElMessage.error(error.message || '标记完成请求失败');
+  } catch (rejectionReason: any) {
+    if (rejectionReason === 'cancel' || rejectionReason === 'close') {
+      ElMessage.info('操作已取消');
+    } else if (rejectionReason instanceof Error) {
+       ElMessage.error(rejectionReason.message || '标记完成请求失败');
+    } else {
+       ElMessage.error('标记完成操作时发生未知错误');
     }
   } finally {
     if (order) order.completing = false;
   }
 };
 
-
-const formatOrderStatus = (status: string): string => {
+const formatOrderStatus = (statusKey: string | undefined): string => {
+  if (!statusKey) return '未知状态';
   const statusMap: Record<string, string> = {
-    pending: '待支付',
-    paid: '已支付/待服务', // 服务商视角
-    completed: '已完成',
-    cancelled: '已取消',
+    'pending': '待支付',
+    'paid': '已支付/待服务',
+    'completed': '已完成',
+    'cancelled': '已取消',
     '待支付': '待支付',
-    '已支付': '已支付/待服务',
+    '已支付/待服务': '已支付/待服务',
+    '服务中': '服务中',
     '已完成': '已完成',
     '已取消': '已取消',
-  }
-  return statusMap[status] || status
-}
+  };
+  return statusMap[statusKey.toLowerCase()] || statusKey;
+};
 
-const getOrderStatusType = (status: string): 'success' | 'warning' | 'info' | 'danger' | '' => {
-   switch (status.toLowerCase()) {
+const getOrderStatusType = (statusKey: string | undefined): 'success' | 'warning' | 'info' | 'danger' | 'primary' => {
+  if (!statusKey) return 'info';
+  switch (statusKey.toLowerCase()) {
     case 'paid':
-    case '已支付':
-      return 'warning' // 待服务是warning
+    case '已支付/待服务':
+    case '服务中':
+      return 'warning';
     case 'completed':
     case '已完成':
-      return 'success'
+      return 'success';
     case 'pending':
     case '待支付':
-      return 'info'
+      return 'info';
     case 'cancelled':
     case '已取消':
-      return 'danger'
+      return 'danger';
+    // case 'some_other_status_that_is_primary': // 示例 primary 类型
+    //   return 'primary';
     default:
-      return 'info'
+      return 'info';
   }
-}
+};
 
 const formatDateTime = (dateTimeStr: string | undefined): string => {
-  if (!dateTimeStr) return '-'
+  if (!dateTimeStr) return '-';
   try {
-    return new Date(dateTimeStr).toLocaleString()
+    return new Date(dateTimeStr).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch (e) {
-    return dateTimeStr
+    return dateTimeStr;
   }
-}
+};
 
 const handlePageChange = (newPage: number) => {
-  currentPage.value = newPage
-  fetchOrders()
-}
+  currentPage.value = newPage;
+};
 
+const canCompleteOrder = (status: string | undefined): boolean => {
+  if (!status) return false;
+  const lowerStatus = status.toLowerCase();
+  return lowerStatus === 'paid' || lowerStatus === '已支付/待服务' || lowerStatus === '服务中';
+};
 
 onMounted(() => {
-  fetchOrders()
-})
+  fetchOrders();
+});
 </script>
 
 <style scoped>
@@ -204,6 +224,15 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 18px; /* 保持或调整您的样式 */
+  font-weight: bold; /* 保持或调整您的样式 */
+}
+.card-header span {
+  display: flex;
+  align-items: center;
+}
+.card-header .el-icon {
+  margin-right: 8px;
 }
 .pagination-container {
   margin-top: 20px;

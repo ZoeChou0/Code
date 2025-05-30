@@ -192,39 +192,6 @@ const routes: RouteRecordRaw[] = [
     name: 'Home',
     component: () => import('../views/Home.vue')
   },
-  // {
-  //   path: '/',
-  //   component: () => import('../views/Redirector.vue'),
-  //   beforeEnter: (to, from, next) => {
-  //     const userStore = useUserStore()
-  //     const role = userStore.userInfo?.role
-
-  //     if (!role) {
-  //       next('/') // 未登录跳登录页
-  //     } else if (role === 'user') {
-  //       next('/')
-  //     } else if (role === 'provider') {
-  //       next('/provider/services')
-  //     } else if (role === 'admin') {
-  //       next('/admin/users')
-  //     } else {
-  //       next('/')
-  //     }
-  //   }
-  // },
-  //   {
-  //   path: '/',
-  //   redirect: () => {
-  //     const userStore = useUserStore()
-  //     const role = userStore.userInfo?.role
-
-  //     if (!role) return '/login'
-  //     if (role === 'user') return '/pets'
-  //     if (role === 'provider') return '/provider/services'
-  //     if (role === 'admin') return '/admin/users'
-  //     return '/login'
-  //   }
-  // }
   {
     path: '/login',
     name: 'Login',
@@ -265,6 +232,12 @@ const routes: RouteRecordRaw[] = [
     name: 'ServiceList',
     component: () => import('../views/service/ServiceList.vue'),
     meta: { requiresAuth: true, roles: ['user'] }
+  },
+  {
+    path: '/service/:id',
+    name: 'ServiceDetail',
+    component: () => import('../views/service/ServiceDetailPage.vue'),
+    props: true
   },
   {
     path: '/orders',
@@ -323,6 +296,11 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, roles: ['provider'] },
     children: [
       {
+        path: 'dashboard', // 路径设置为 'dashboard'
+        name: 'ProviderDashboard',
+        component: () => import('../views/provider/ProviderDashboard.vue') // 新建的仪表盘组件
+      },
+      {
         path: 'services',
         name: 'ProviderServiceList',
         component: () => import('../views/provider/ServiceList.vue')
@@ -342,7 +320,13 @@ const routes: RouteRecordRaw[] = [
         name: 'ProviderAddService',
         component: () => import('../views/provider/AddService.vue'),
         meta: { requiresAuth: true, roles: ['provider'] }
-      }
+      },
+      {
+        path: 'orders',
+        name: 'ProviderOrderList',
+        component: () => import('../views/provider/OrderList.vue'),
+        meta: { requiresAuth: true, roles: ['provider'] }
+      },
     ]
   },
   // 管理员路由

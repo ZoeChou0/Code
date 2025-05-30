@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div class="admin-order-list-container">
     <el-card>
       <template #header>
@@ -293,6 +293,226 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+</style> -->
+
+
+<template>
+  <div class="admin-order-list-container">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <span><el-icon><List /></el-icon> 所有订单</span>
+          <div>
+            <el-input
+              v-model="searchParams.keyword"
+              placeholder="搜索订单ID/用户/服务"
+              clearable
+              style="width: 200px; margin-right: 10px;"
+              @keyup.enter="handleSearch"
+              @clear="handleSearch"
+            />
+            <el-select
+              v-model="searchParams.status"
+              placeholder="订单状态"
+              clearable
+              style="width: 150px; margin-right: 10px;"
+              @change="handleSearch"
+            >
+              <el-option label="全部状态" value="" />
+              <el-option label="待支付" value="pending" />
+              <el-option label="已支付/待服务" value="paid" />
+              <el-option label="已完成" value="completed" />
+              <el-option label="已取消" value="cancelled" />
+              </el-select>
+            <el-button type="primary" @click="handleSearch"><el-icon><Search /></el-icon> 搜索</el-button>
+          </div>
+        </div>
+      </template>
+
+      <el-table :data="orders" stripe style="width: 100%" v-loading="loading">
+        <el-table-column prop="id" label="订单ID" width="90" sortable />
+        <el-table-column prop="userName" label="用户名称" min-width="120" />
+        <el-table-column prop="serviceName" label="服务名称" min-width="150" />
+        <el-table-column prop="petName" label="宠物名称" min-width="120" />
+        <el-table-column prop="amount" label="金额 (元)" width="110" sortable>
+          <template #default="scope">
+            ¥{{ scope.row.amount?.toFixed(2) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="130">
+          <template #default="scope">
+            <el-tag :type="getOrderStatusType(scope.row.status)">
+              {{ formatOrderStatus(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="下单时间" width="170" sortable>
+           <template #default="scope">
+            {{ formatDateTime(scope.row.createdAt) }}
+          </template>
+        </el-table-column>
+         <el-table-column prop="payTime" label="支付时间" width="170" sortable>
+           <template #default="scope">
+            {{ scope.row.payTime ? formatDateTime(scope.row.payTime) : '-' }}
+          </template>
+        </el-table-column>
+        </el-table>
+
+      <el-pagination
+        v-if="pagination.total > 0"
+        class="pagination-container"
+        background
+        layout="prev, pager, next, total, jumper, sizes"
+        :total="pagination.total"
+        :current-page="pagination.current"
+        :page-size="pagination.size"
+        :page-sizes="[10, 20, 50, 100]"
+        @current-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
+    </el-card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, reactive } from 'vue';
+import { ElMessage, ElCard, ElTable, ElTableColumn, ElTag, ElPagination, ElInput, ElSelect, ElOption, ElButton, ElIcon } from 'element-plus';
+import { List, Search } from '@element-plus/icons-vue';
+import { getAllOrderList } from '@/api/order';
+import type { OrderAdminViewDTO, PaginatedData } from '@/api/order'; // 确保导入 PaginatedData
+import type { BackendResult } from '@/types/api';
+
+const orders = ref<OrderAdminViewDTO[]>([]);
+const loading = ref(false);
+
+const searchParams = reactive({
+  keyword: '',
+  status: '',
+});
+
+const pagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0,
+});
+
+const fetchOrders = async () => {
+  loading.value = true;
+  try {
+    const params = {
+      page: pagination.current,
+      size: pagination.size,
+      keyword: searchParams.keyword || undefined, // 传 undefined 如果为空字符串
+      status: searchParams.status || undefined,   // 传 undefined 如果为空字符串
+    };
+    // 调用 getAllOrderList，它现在返回 BackendResult<PaginatedData<OrderAdminViewDTO>>
+    const res: BackendResult<PaginatedData<OrderAdminViewDTO>> = await getAllOrderList(params);
+
+    if (res.code === 200 && res.data) {
+      // 正确访问记录列表：res.data.records
+      orders.value = res.data.records;
+      pagination.total = res.data.total;
+      pagination.current = res.data.current;
+      pagination.size = res.data.size;
+    } else {
+      ElMessage.error(res.message || '获取订单列表失败');
+      orders.value = []; // 清空列表
+      pagination.total = 0; // 重置总数
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取订单列表请求失败');
+    orders.value = [];
+    pagination.total = 0;
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleSearch = () => {
+  pagination.current = 1; // 搜索时重置到第一页
+  fetchOrders();
+};
+
+const handlePageChange = (newPage: number) => {
+  pagination.current = newPage;
+  fetchOrders();
+};
+
+const handleSizeChange = (newSize: number) => {
+  pagination.size = newSize;
+  pagination.current = 1; // 更改每页数量时，回到第一页
+  fetchOrders();
+};
+
+const formatOrderStatus = (statusKey: string | undefined): string => {
+  if (!statusKey) return '未知';
+  const statusMap: Record<string, string> = {
+    'pending': '待支付',
+    'paid': '已支付/待服务',
+    'completed': '已完成',
+    'cancelled': '已取消',
+    // 根据后端 OrderAdminViewDTO 中 status 字段的实际值添加映射
+  };
+  return statusMap[statusKey.toLowerCase()] || statusKey;
+};
+
+const getOrderStatusType = (statusKey: string | undefined): 'success' | 'warning' | 'info' | 'danger' | 'primary' => {
+  if (!statusKey) return 'info';
+  switch (statusKey.toLowerCase()) {
+    case 'paid':
+    case '已支付/待服务':
+      return 'warning';
+    case 'completed':
+    case '已完成':
+      return 'success';
+    case 'pending':
+    case '待支付':
+      return 'info';
+    case 'cancelled':
+    case '已取消':
+      return 'danger';
+    default:
+      return 'info';
+  }
+};
+
+const formatDateTime = (dateTimeStr: string | undefined): string => {
+  if (!dateTimeStr) return '-';
+  try {
+    return new Date(dateTimeStr).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return dateTimeStr;
+  }
+};
+
+onMounted(() => {
+  fetchOrders();
+});
+</script>
+
+<style scoped>
+.admin-order-list-container {
+  padding: 20px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+.card-header span, .card-header div {
+  display: flex;
+  align-items: center;
+}
+.card-header .el-icon {
+  margin-right: 8px;
 }
 .pagination-container {
   margin-top: 20px;
