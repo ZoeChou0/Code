@@ -156,7 +156,7 @@ const handleCompleteOrder = async (orderId: number) => {
 const formatOrderStatus = (statusKey: string | undefined): string => {
   if (!statusKey) return '未知状态';
   const statusMap: Record<string, string> = {
-    'pending': '待支付',
+    'pending_payment': '待支付',
     'paid': '已支付/待服务',
     'completed': '已完成',
     'cancelled': '已取消',
@@ -179,7 +179,7 @@ const getOrderStatusType = (statusKey: string | undefined): 'success' | 'warning
     case 'completed':
     case '已完成':
       return 'success';
-    case 'pending':
+    case 'pending_payment':
     case '待支付':
       return 'info';
     case 'cancelled':

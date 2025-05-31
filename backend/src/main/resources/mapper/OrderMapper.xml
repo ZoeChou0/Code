@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zsh.petsystem.mapper.OrderMapper">
+
+    <resultMap id="ProviderOrderStatsResultMap" type="com.zsh.petsystem.dto.ProviderDashboardStatsDTO">
+        <result property="totalCompletedOrders" column="total_completed_orders"/>
+        <result property="totalRevenue" column="total_revenue"/>
+        </resultMap>
+
+    <select id="getProviderOrderStatistics" resultMap="ProviderOrderStatsResultMap">
+        SELECT
+            COUNT(o.id) AS total_completed_orders,
+            SUM(o.amount) AS total_revenue
+        FROM
+            orders o
+        JOIN
+            reservation r ON o.reservation_id = r.id
+        JOIN
+            service_item si ON r.service_id = si.id
+        WHERE
+            si.provider_id = #{providerId}
+            AND o.status = 'completed' 
+        </select>
+
+    </mapper>

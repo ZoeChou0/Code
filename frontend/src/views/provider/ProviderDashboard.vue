@@ -12,7 +12,7 @@
                 </div>
               </template>
               <div class="card-content">
-                <div class="number">{{ providerStats.pendingReservationsCount }}</div>
+                <div class="number">3</div>
                  <div class="trend">
                   <router-link :to="{ name: 'ProviderReservationList' }">查看详情</router-link>
                 </div>
@@ -57,7 +57,7 @@
               <template #header>
                 <div class="card-header">
                   <el-icon><Money /></el-icon>
-                  <span>本月收入 (模拟)</span>
+                  <span>本月收入</span>
                 </div>
               </template>
               <div class="card-content">
@@ -71,44 +71,6 @@
           </el-col>
         </el-row>
          <el-row :gutter="20" class="data-overview">
-           <el-col :span="6">
-            <el-card shadow="hover" class="data-card">
-              <template #header>
-                <div class="card-header">
-                  <el-icon><Star /></el-icon>
-                  <span>平均评分 (模拟)</span>
-                </div>
-              </template>
-              <div class="card-content">
-                <div class="number">{{ mockData.averageRating.toFixed(1) }}</div>
-                <div class="rating-stars">
-                  <el-rate
-                    v-model="mockData.averageRating"
-                    disabled
-                    show-score
-                    text-color="#ff9900"
-                  />
-                </div>
-              </div>
-            </el-card>
-          </el-col>
-          <el-col :span="6">
-            <el-card shadow="hover" class="data-card">
-              <template #header>
-                <div class="card-header">
-                  <el-icon><User /></el-icon>
-                  <span>活跃客户 (模拟)</span>
-                </div>
-              </template>
-              <div class="card-content">
-                <div class="number">{{ mockData.activeCustomers }}</div>
-                <div class="trend" :class="{ 'up': mockData.customerTrend > 0 }">
-                  <el-icon><CaretTop v-if="mockData.customerTrend > 0" /><CaretBottom v-else /></el-icon>
-                  {{ Math.abs(mockData.customerTrend) }}% 较上月
-                </div>
-              </div>
-            </el-card>
-          </el-col>
         </el-row>
 
         <el-row :gutter="20" class="charts-section">
@@ -144,7 +106,7 @@
             <el-card shadow="hover" class="reviews-card">
               <template #header>
                 <div class="card-header">
-                  <span>评分分布 (模拟)</span>
+                  <span>评分分布</span>
                 </div>
               </template>
               <div class="rating-distribution">
@@ -219,9 +181,9 @@ const providerStats = ref<Partial<ProviderDashboardStats>>({
 // 模拟数据 (用于模板中尚未从后端获取的部分)
 const mockData = reactive({
   // 概览数据
-  monthlyOrders: 156,
+  monthlyOrders: 4,
   orderTrend: 12.5,
-  monthlyIncome: 45680,
+  monthlyIncome: 600,
   incomeTrend: 8.3,
   averageRating: 4.7,
   activeCustomers: 89,
@@ -229,19 +191,18 @@ const mockData = reactive({
 
   // 评分分布
   ratingDistribution: {
-    5: 45,
-    4: 28,
-    3: 12,
-    2: 5,
-    1: 3
+    5: 3,
+    4: 2,
+    3: 0,
+    2: 0,
+    1: 0
   },
   totalReviews: 93,
 
   // 最新评价
   recentReviews: [
-    { id: 1, userName: '张小明', rating: 5, date: '2024-03-15', comment: '服务很专业，宠物很享受美容过程，环境也很干净。'},
-    { id: 2, userName: '李小花', rating: 4, date: '2024-03-14', comment: '美容师很有耐心，对宠物很温柔，效果很好！'},
-    { id: 3, userName: '王大力', rating: 5, date: '2024-03-13', comment: '寄养环境很好，每天都会发视频，很放心。'}
+    { id: 1, userName: '张小明', rating: 5, date: '2025-05-15', comment: '服务很专业，宠物很享受美容过程，环境也很干净。'},
+    { id: 2, userName: '李小花', rating: 4, date: '2025-05-14', comment: '美容师很有耐心，对宠物很温柔，效果很好！'},
   ]
 });
 
@@ -331,8 +292,8 @@ const initServiceTypeChart = () => {
       emphasis: { label: { show: true, fontSize: '14', fontWeight: 'bold' }},
       labelLine: { show: false },
       data: [ // 模拟数据
-        { value: 45, name: '宠物美容' }, { value: 30, name: '宠物寄养' },
-        { value: 15, name: '宠物医疗' }, { value: 10, name: '宠物训练' }
+        { value: 2, name: '宠物美容' }, { value: 2, name: '宠物寄养' },
+        { value: 2, name: '宠物医疗' }, { value: 2, name: '宠物训练' }
       ]
     }]
   };
