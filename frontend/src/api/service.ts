@@ -7,7 +7,7 @@ export interface Service {
   description: string
   price: number
   duration: number
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewStatus: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
   rejectionReason?: string
   providerId: number
   dailyCapacity: number

@@ -8,6 +8,7 @@
         <result property="description" column="si_description"/>
         <result property="price" column="si_price"/>
         <result property="duration" column="si_duration"/>
+        <result property="category" column="si_category"/>
         <result property="providerId" column="si_provider_id"/>
         <result property="dailyCapacity" column="si_daily_capacity"/>
         <result property="requiredVaccinations" column="si_required_vaccinations"/>
@@ -31,6 +32,7 @@
             si.description AS si_description,
             si.price AS si_price,
             si.duration AS si_duration,
+            si.category AS si_category,
             si.provider_id AS si_provider_id,
             si.daily_capacity AS si_daily_capacity,
             si.required_vaccinations AS si_required_vaccinations,
@@ -44,36 +46,44 @@
             u.address_line1 AS u_address_line1,
             u.city AS u_city,
             u.state AS u_state,
-            -- 计算此服务的平均评分 (如果服务商没有评价则为 NULL)
             (SELECT AVG(r.rating) FROM reviews r WHERE r.service_item_id = si.id) AS avg_rating
         FROM
             service_item si
         LEFT JOIN
             users u ON si.provider_id = u.id
         WHERE
-            si.review_status = 'APPROVED'  -- 只选择已批准的服务
-            AND u.status = 'active'        -- 确保服务商状态是激活的
-            AND u.qualification_status = 'APPROVED' -- 确保服务商资质已批准
+            si.review_status = 'APPROVED'
+            AND u.status = 'active'
+            AND u.qualification_status = 'APPROVED'
             <if test="params.keyword != null and params.keyword != ''">
                 AND (si.name LIKE CONCAT('%', #{params.keyword}, '%')
                      OR si.description LIKE CONCAT('%', #{params.keyword}, '%')
                      OR u.name LIKE CONCAT('%', #{params.keyword}, '%'))
             </if>
+            <if test="params.category != null and params.category != ''">
+                AND si.category = #{params.category}
+            </if>
+            <if test="params.city != null and params.city != ''">
+                AND u.city = #{params.city}
+            </if>
             <if test="params.location != null and params.location != ''">
-                AND (u.city LIKE CONCAT('%', #{params.location}, '%')
-                     OR u.state LIKE CONCAT('%', #{params.location}, '%')
-                     OR u.address_line1 LIKE CONCAT('%', #{params.location}, '%'))
+                AND (u.state LIKE CONCAT('%', #{params.location}, '%')
+                     OR u.address_line1 LIKE CONCAT('%', #{params.location}, '%')
+                    )
             </if>
             <if test="params.minPrice != null">
                 AND si.price >= #{params.minPrice}
             </if>
             <if test="params.maxPrice != null">
-                AND si.price &lt;= #{params.maxPrice} </if>
-             <if test="params.housingConditions != null and params.housingConditions != ''">
+                AND si.price &lt;= #{params.maxPrice}
+            </if>
+            <if test="params.housingConditions != null and params.housingConditions != ''">
                 <if test="params.housingConditions.contains('house')">
-                     AND u.has_independent_house = TRUE  </if>
+                     AND u.has_independent_house = TRUE
+                </if>
                  <if test="params.housingConditions.contains('fenced_yard')">
-                     AND u.has_fenced_yard = TRUE  </if>
+                     AND u.has_fenced_yard = TRUE
+                </if>
             </if>
             <if test="params.petTypes != null and params.petTypes != ''">
                  AND (si.prohibited_breeds IS NULL OR
@@ -81,8 +91,27 @@
                           si.prohibited_breeds NOT LIKE CONCAT('%', #{petType}, '%')
                       </foreach>
                  )
-                 </if>
-            ORDER BY si.id DESC
+            </if>
+            <if test="params.sortBy != null and params.sortBy != ''">
+                ORDER BY
+                <choose>
+                    <when test="params.sortBy == 'price'">
+                        si.price
+                    </when>
+                    <when test="params.sortBy == 'rating'">
+                        avg_rating
+                    </when>
+                    <otherwise>
+                        si.id </otherwise>
+                </choose>
+                <if test="params.sortOrder != null and params.sortOrder == 'asc'">
+                    ASC
+                </if>
+                <if test="params.sortOrder == null or params.sortOrder == '' or params.sortOrder == 'desc'">
+                    DESC
+                </if>
+            </if>
+            <if test="params.sortBy == null or params.sortBy == ''">
+                 ORDER BY si.id DESC </if>
     </select>
-
 </mapper>

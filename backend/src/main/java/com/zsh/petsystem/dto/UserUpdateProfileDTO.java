@@ -3,6 +3,8 @@ package com.zsh.petsystem.dto;
 import lombok.Data;
 import java.time.LocalDate;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @Data
 public class UserUpdateProfileDTO {
   // 只包含允许用户修改的字段
@@ -14,7 +16,6 @@ public class UserUpdateProfileDTO {
   private String city;
   private String state;
   private String zipCode;
-
   private LocalDate birthday;
   private String profilePhotoUrl;
 }

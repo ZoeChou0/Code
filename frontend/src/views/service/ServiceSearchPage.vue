@@ -1,4 +1,3 @@
-
 <template>
   <div class="service-search-page">
     <el-container class="page-container">
@@ -12,34 +11,57 @@
           </template>
           <el-form :model="searchForm" label-position="top" size="small">
 
-            <el-form-item label="服务类型/关键词"> <el-select
+            <el-form-item label="服务类型/关键词">
+              <el-select
                 v-model="searchForm.serviceTypeKeyword"
-                placeholder="选择或输入服务类型/关键词"
+                placeholder="选择服务类型或输入关键词"
                 clearable
                 filterable
                 allow-create
                 default-first-option
                 style="width: 100%;"
+                @change="handleSearch" 
               >
                 <el-option label="宠物美容" value="宠物美容"></el-option>
                 <el-option label="宠物寄养" value="宠物寄养"></el-option>
                 <el-option label="宠物医疗" value="宠物医疗"></el-option>
                 <el-option label="宠物训练" value="宠物训练"></el-option>
                 </el-select>
-              <p class="filter-tip">匹配服务名称、描述或服务商名称</p>
+              <p class="filter-tip">选择类型进行精确匹配，输入自定义词则模糊匹配。</p>
             </el-form-item>
 
-            <el-form-item label="地点">
-              <el-input v-model="searchForm.locationKeyword" placeholder="输入城市、省份或地址关键字" clearable>
-                 <template #prepend><el-icon><LocationInformation /></el-icon></template>
-              </el-input>
-               <p class="filter-tip">将匹配服务商地址信息</p>
+            <el-form-item label="城市">
+              <el-select
+                v-model="searchForm.selectedCity"
+                placeholder="选择城市"
+                clearable
+                filterable
+                style="width: 100%;"
+                @change="handleSearch"
+              >
+                <el-option v-for="city in cities" :key="city.value" :label="city.label" :value="city.value" />
+              </el-select>
             </el-form-item>
 
             <el-form-item label="价格范围 (每项服务)">
-               <el-slider v-model="searchForm.priceRange" range :max="1000" :step="10" :marks="{0:'¥0', 500:'¥500', 1000:'¥1000+'}" />
+               <el-slider v-model="searchForm.priceRange" range :max="1000" :step="10" :marks="{0:'¥0', 500:'¥500', 1000:'¥1000+'}" @change="handleSearch"/>
                <div class="price-range-display">
-                 ¥{{ searchForm.priceRange[0] }} - ¥{{ searchForm.priceRange[1] >= 1000 ? '1000+' : searchForm.priceRange[1] }} </div>
+                 ¥{{ searchForm.priceRange[0] }} - ¥{{ searchForm.priceRange[1] >= 1000 ? '1000+' : searchForm.priceRange[1] }}
+               </div>
+            </el-form-item>
+
+            <el-form-item label="排序方式">
+              <div style="display: flex; width: 100%; gap: 10px;">
+                <el-select v-model="searchForm.sortBy" placeholder="排序字段" clearable @change="handleSearch" style="flex-grow: 1;">
+                  <el-option label="默认排序" value=""></el-option>
+                  <el-option label="按价格" value="price"></el-option>
+                  <el-option label="按评分" value="rating"></el-option>
+                </el-select>
+                <el-select v-model="searchForm.sortOrder" placeholder="顺序" :disabled="!searchForm.sortBy" @change="handleSearch" style="width: 90px;">
+                  <el-option label="降序" value="desc"></el-option>
+                  <el-option label="升序" value="asc"></el-option>
+                </el-select>
+              </div>
             </el-form-item>
 
             <el-divider>详细筛选</el-divider>
@@ -55,24 +77,18 @@
                 value-format="YYYY-MM-DD"
                 clearable
                 :disabled-date="disabledDate"
+                @change="handleSearch"
               />
                <p class="filter-tip">提示: 此筛选依赖后端支持服务可用日期查询。</p>
             </el-form-item>
 
-            <el-form-item label="您的宠物类型 (用于不接受品种筛选)">
-               <el-checkbox-group v-model="searchForm.petTypes">
+            <!-- <el-form-item label="您的宠物类型 (用于不接受品种筛选)">
+               <el-checkbox-group v-model="searchForm.petTypes" @change="handleSearch">
                   <el-checkbox label="Dog">狗</el-checkbox>
                   <el-checkbox label="Cat">猫</el-checkbox>
-                  </el-checkbox-group>
-                <p class="filter-tip">筛选出不禁止您宠物类型的服务。</p>
-            </el-form-item>
-
-            <el-form-item label="服务商住房条件">
-               <el-checkbox-group v-model="searchForm.housing">
-                  <el-checkbox label="house">有独立房屋</el-checkbox>
-                  <el-checkbox label="fenced_yard">有围栏的院子</el-checkbox>
                </el-checkbox-group>
-            </el-form-item>
+                <p class="filter-tip">筛选出不禁止您宠物类型的服务。</p>
+            </el-form-item> -->
 
              <el-form-item>
                <el-button type="primary" @click="handleSearch" :icon="SearchIcon" style="width: 100%;" :loading="submitLoading">
@@ -90,7 +106,7 @@
       <el-main class="main-content">
         <div class="results-header">
             <span v-if="!loading && !loadError">
-                {{ filteredServiceList.length > 0 ? `根据您的筛选，找到 ${filteredServiceList.length} 个相关服务` : '当前条件下未找到匹配的服务' }}
+                {{ serviceList.length > 0 ? `根据您的筛选，找到 ${serviceList.length} 个相关服务` : '当前条件下未找到匹配的服务' }}
             </span>
             <span v-if="loading">正在努力加载服务...</span>
         </div>
@@ -110,15 +126,15 @@
             <el-button link type="primary" @click="() => fetchServices(false)" style="margin-left: 0px; padding-top: 5px;">点此重试</el-button>
           </template>
         </el-alert>
-        <div v-else-if="filteredServiceList.length === 0" class="empty-state-main">
+        <div v-else-if="serviceList.length === 0" class="empty-state-main">
           <el-empty description="没有找到符合您筛选条件的服务。请尝试调整筛选条件或重置所有筛选。"></el-empty>
         </div>
         <div v-else class="service-list-grid-main">
-          <el-card v-for="service in filteredServiceList" :key="service.id" shadow="hover" class="service-card-main">
+          <el-card v-for="service in serviceList" :key="service.id" shadow="hover" class="service-card-main">
             <template #header>
                 <div class="service-card-header">
                   <span class="service-name" :title="service.name">{{ service.name }}</span>
-                  <span class="service-price">¥{{ service.price?.toFixed(2) ?? '待议' }} / {{ service.duration ? service.duration+'分钟' : '次' }}</span>
+                  <span class="service-price">¥{{ service.price?.toFixed(2) ?? '待议' }} / {{ formatDuration(service.duration) }}</span>
                 </div>
              </template>
              <div class="service-card-body">
@@ -169,106 +185,157 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue'; // 引入 watch
+import { ref, reactive, onMounted, watch } from 'vue';
 import {
   ElContainer, ElAside, ElMain, ElCard, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElDatePicker, ElSlider,
   ElCheckboxGroup, ElCheckbox, ElButton, ElTag, ElIcon, ElEmpty, ElSkeleton, ElAlert, ElMessage,
-  ElAvatar, ElDivider, ElTooltip // ElImage, ElRadioGroup, ElRadioButton (如果需要)
+  ElAvatar, ElDivider, ElTooltip
 } from 'element-plus';
 import {
     Filter as FilterIcon,
     Search as SearchIcon,
     LocationInformation,
-    // Promotion, // 未使用
     Link,
     User as ElUser,
-    // Picture, Comment, Dish, Memo, Edit, // 未直接使用，但可以保留或按需移除
     FirstAidKit,
     Refresh,
-    ChatDotRound, // 用于性格要求
-    CircleClose // 用于禁养品种
+    ChatDotRound,
+    CircleClose
 } from '@element-plus/icons-vue';
 import { getActiveServices } from '@/api/service';
-import type { Service as ApiServiceType } from '@/api/service'; // 重命名以避免与HTML <service> 标签冲突
+import type { Service as ApiServiceType } from '@/api/service';
 import type { BackendResult } from '@/types/api';
 import { useUserStore } from '@/stores/user';
 import { useRoute, useRouter } from 'vue-router';
-
-interface ServiceUIData extends ApiServiceType {
-  // 可以在这里添加前端特有的临时状态，如果需要
-}
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
-const loading = ref(true); // 初始加载状态为true
+const loading = ref(true);
 const loadError = ref(false);
 const errorMessage = ref('');
-const serviceList = ref<ServiceUIData[]>([]);
-const submitLoading = ref(false); // 用于搜索按钮的loading
+const serviceList = ref<ApiServiceType[]>([]);
+const submitLoading = ref(false);
+
+const cities = ref([
+  { value: '北京', label: '北京' },
+  { value: '上海', label: '上海' },
+  { value: '广州', label: '广州' },
+  { value: '深圳', label: '深圳' },
+  { value: '杭州', label: '杭州' },
+  { value: '成都', label: '成都' },
+  { value: '重庆', label: '重庆' },
+  { value: '武汉', label: '武汉' },
+  { value: '西安', label: '西安' },
+  { value: '南京', label: '南京' },
+]);
+
+const predefinedServiceTypes = ['宠物美容', '宠物寄养', '宠物医疗', '宠物训练'];
 
 const initialSearchForm = {
   serviceTypeKeyword: '',
+  selectedCity: '',
   locationKeyword: '',
   dates: undefined as [string, string] | undefined,
   priceRange: [0, 1000] as [number, number],
   petTypes: [] as string[],
   housing: [] as string[],
+  sortBy: '',
+  sortOrder: 'desc',
 };
 const searchForm = reactive({ ...initialSearchForm });
 
 const disabledDate = (time: Date) => {
-  return time.getTime() < Date.now() - 8.64e7; // 只能选择今天及以后的日期
+  return time.getTime() < Date.now() - 8.64e7;
 };
 
-// 监听路由查询参数的变化，以便在用户通过URL直接访问带参数的搜索页时，能更新表单并触发搜索
-watch(() => route.query, (newQuery) => {
-    // 只有当路由查询参数实际改变，并且与当前表单状态不同时才更新和重新获取
-    // 这避免了因 router.replace 自身触发的不必要更新
-    let formNeedsUpdate = false;
-    if (newQuery.keyword !== searchForm.serviceTypeKeyword) {
-        searchForm.serviceTypeKeyword = (newQuery.keyword as string) || initialSearchForm.serviceTypeKeyword;
-        formNeedsUpdate = true;
+watch(() => route.query, (newQuery, oldQuery) => {
+    // 仅当查询参数实际改变且当前不处于加载中时才处理
+    if (JSON.stringify(newQuery) === JSON.stringify(oldQuery) || loading.value) {
+        return;
     }
-    if (newQuery.location !== searchForm.locationKeyword) {
-        searchForm.locationKeyword = (newQuery.location as string) || initialSearchForm.locationKeyword;
-        formNeedsUpdate = true;
+    initializeFormFromRoute();
+    // 仅当路由中有实际查询参数，或旧查询参数也非空时，才因路由变化自动获取数据
+    // 避免从有参数导航到无参数（如重置）时，watch又错误地触发一次fetch
+    if (Object.keys(newQuery).length > 0 || Object.keys(oldQuery).length > 0) {
+        fetchServices(false); // 标记为非用户主动搜索
     }
-    // ... (对其他参数也进行类似比较和更新) ...
-    // 简单的实现：如果路由参数变化，就重新获取
-    // 但要注意避免 fetchServices -> router.replace -> watch -> fetchServices 的无限循环
-    // 通常 onMounted 处理初始加载，用户操作触发 fetchData(true) 来更新路由
 }, { deep: true });
 
 
+const initializeFormFromRoute = () => {
+    const query = route.query;
+    let formChanged = false;
+
+    const updateField = (formKey: keyof typeof searchForm, queryKey: string, defaultValue: any, isArray = false, isNumberPair = false) => {
+        const queryValue = query[queryKey];
+        let newValue = defaultValue;
+
+        if (isArray) {
+            newValue = queryValue ? (queryValue as string).split(',') : [...defaultValue];
+            if (JSON.stringify(searchForm[formKey]) !== JSON.stringify(newValue)) {
+                (searchForm[formKey] as any) = newValue;
+                formChanged = true;
+            }
+        } else if (isNumberPair && queryKey === 'priceRange') { // 特殊处理价格范围
+            const qMin = parseInt(query.minPrice as string);
+            const qMax = parseInt(query.maxPrice as string);
+            const currentVal = searchForm[formKey] as [number, number];
+            const newMin = !isNaN(qMin) ? qMin : defaultValue[0];
+            const newMax = !isNaN(qMax) && qMax <= 1000 ? qMax : defaultValue[1];
+            if (currentVal[0] !== newMin || currentVal[1] !== newMax) {
+                 (searchForm[formKey] as [number, number]) = [newMin, newMax];
+                 formChanged = true;
+            }
+        } else if(queryKey === 'serviceTypeKeyword') { // 特殊处理 serviceTypeKeyword
+            if (query.category) {
+                newValue = query.category as string;
+            } else if (query.keyword) {
+                newValue = query.keyword as string;
+            } else {
+                newValue = defaultValue;
+            }
+            if (searchForm[formKey] !== newValue) {
+                (searchForm[formKey] as string) = newValue;
+                formChanged = true;
+            }
+        }
+        else {
+            newValue = (queryValue as string) || defaultValue;
+             if (searchForm[formKey] !== newValue) {
+                (searchForm[formKey] as string) = newValue;
+                formChanged = true;
+            }
+        }
+    };
+
+    updateField('serviceTypeKeyword', 'serviceTypeKeyword', initialSearchForm.serviceTypeKeyword, false, false); // 使用自身作为key
+    updateField('selectedCity', 'city', initialSearchForm.selectedCity);
+    updateField('locationKeyword', 'location', initialSearchForm.locationKeyword);
+    updateField('sortBy', 'sortBy', initialSearchForm.sortBy);
+    updateField('sortOrder', 'sortOrder', initialSearchForm.sortOrder);
+    updateField('priceRange', 'priceRange', initialSearchForm.priceRange, false, true); // 触发minPrice/maxPrice读取
+
+    if (query.startDate && query.endDate) {
+        const newDates: [string, string] = [query.startDate as string, query.endDate as string];
+        if(JSON.stringify(searchForm.dates) !== JSON.stringify(newDates)) {
+            searchForm.dates = newDates;
+            formChanged = true;
+        }
+    } else if (searchForm.dates !== undefined) {
+        searchForm.dates = undefined;
+        formChanged = true;
+    }
+    updateField('petTypes', 'petTypes', initialSearchForm.petTypes, true);
+    updateField('housing', 'housingConditions', initialSearchForm.housing, true);
+
+    return formChanged; // 返回表单是否有变化
+};
+
 onMounted(() => {
-  const query = route.query;
-  // 初始化表单时，避免触发不必要的 watch 或重复的 router.replace
-  searchForm.serviceTypeKeyword = (query.keyword as string) || initialSearchForm.serviceTypeKeyword;
-  searchForm.locationKeyword = (query.location as string) || initialSearchForm.locationKeyword;
-
-  const queryMinPrice = parseInt(query.minPrice as string);
-  const queryMaxPrice = parseInt(query.maxPrice as string);
-  if (!isNaN(queryMinPrice) || !isNaN(queryMaxPrice)) {
-    searchForm.priceRange = [
-        !isNaN(queryMinPrice) ? queryMinPrice : initialSearchForm.priceRange[0],
-        !isNaN(queryMaxPrice) && queryMaxPrice <= 1000 ? queryMaxPrice : initialSearchForm.priceRange[1], // 确保不超过slider的max
-    ];
-  } else {
-    searchForm.priceRange = [...initialSearchForm.priceRange];
-  }
-
-
-  if (query.startDate && query.endDate) {
-      searchForm.dates = [query.startDate as string, query.endDate as string];
-  } else {
-    searchForm.dates = undefined;
-  }
-  searchForm.petTypes = query.petTypes ? (query.petTypes as string).split(',') : [...initialSearchForm.petTypes];
-  searchForm.housing = query.housingConditions ? (query.housingConditions as string).split(',') : [...initialSearchForm.housing];
-
-  fetchServices(false); // 页面加载时获取一次服务列表
+  initializeFormFromRoute();
+  fetchServices(false); // 初始加载，非用户搜索
 });
 
 const fetchServices = async (isUserSearch: boolean = false) => {
@@ -277,19 +344,27 @@ const fetchServices = async (isUserSearch: boolean = false) => {
   loadError.value = false;
   errorMessage.value = '';
 
-  if (isUserSearch) {
-    // ElMessage.info('正在根据筛选条件搜索...'); // 可以保留，但成功/失败/无结果的消息更重要
-  }
-
   try {
     const params: Record<string, any> = {};
-    if (searchForm.serviceTypeKeyword && searchForm.serviceTypeKeyword.trim() !== '') params.keyword = searchForm.serviceTypeKeyword.trim();
+
+    // 服务类型/关键词 处理逻辑
+    if (searchForm.serviceTypeKeyword && searchForm.serviceTypeKeyword.trim() !== '') {
+      const value = searchForm.serviceTypeKeyword.trim();
+      if (predefinedServiceTypes.includes(value)) {
+        params.category = value; // 如果是预设类型，作为 category 发送
+      } else {
+        params.keyword = value; // 否则，作为 keyword 发送
+      }
+    }
+
+    if (searchForm.selectedCity && searchForm.selectedCity.trim() !== '') params.city = searchForm.selectedCity.trim();
     if (searchForm.locationKeyword && searchForm.locationKeyword.trim() !== '') params.location = searchForm.locationKeyword.trim();
 
     if (searchForm.priceRange[0] > 0) params.minPrice = searchForm.priceRange[0];
-    if (searchForm.priceRange[1] < 1000) params.maxPrice = searchForm.priceRange[1]; // 只有当上限不是1000时才传递，因为1000代表1000+ (即无上限)
+    // 注意：如果价格上限是滑块最大值（例如1000代表1000+），则不应将此值作为maxPrice发送给后端（意味着无上限）
+    if (searchForm.priceRange[1] < 1000) params.maxPrice = searchForm.priceRange[1];
 
-    // 服务日期筛选 (提醒：后端 ServiceItemMapper.xml 当前没有处理这两个参数)
+
     if (searchForm.dates && searchForm.dates[0] && searchForm.dates[1]) {
       params.startDate = searchForm.dates[0];
       params.endDate = searchForm.dates[1];
@@ -303,44 +378,60 @@ const fetchServices = async (isUserSearch: boolean = false) => {
       params.housingConditions = searchForm.housing.join(',');
     }
 
-    console.log("发送搜索参数到后端:", params);
+    if (searchForm.sortBy) {
+      params.sortBy = searchForm.sortBy;
+      params.sortOrder = (searchForm.sortOrder === 'asc' || searchForm.sortOrder === 'desc') ? searchForm.sortOrder : 'desc';
+    }
 
-    // 更新URL中的查询参数 (仅在用户主动搜索时，或初始加载时如果已有参数)
+    console.log("发送到后端的参数 (fetchServices):", params);
+
     const queryToUpdate: Record<string, any> = {};
-    for (const key in params) {
-        if (Object.prototype.hasOwnProperty.call(params, key) && params[key] !== undefined && String(params[key]).trim() !== '') {
-            queryToUpdate[key] = params[key];
-        }
-    }
-    // 避免在非用户搜索且无初始query时写入空query
-    if (isUserSearch || Object.keys(route.query).length > 0 || Object.keys(queryToUpdate).length > 0) {
-        if (JSON.stringify(route.query) !== JSON.stringify(queryToUpdate)) { // 仅当参数实际变化时才替换路由
-            router.replace({ query: queryToUpdate });
-        }
-    }
+    // 根据 params 构建 queryToUpdate，确保只包含实际发送到API的有效参数
+    if (params.category) queryToUpdate.category = params.category;
+    else if (params.keyword) queryToUpdate.keyword = params.keyword; // 如果没有category，但有keyword
 
+    if (params.city) queryToUpdate.city = params.city;
+    if (params.location) queryToUpdate.location = params.location;
+    // 对价格范围特殊处理，仅当它们不是初始值时才加入URL
+    if (params.minPrice && params.minPrice !== initialSearchForm.priceRange[0]) queryToUpdate.minPrice = params.minPrice.toString();
+    if (params.maxPrice && params.maxPrice !== initialSearchForm.priceRange[1]) queryToUpdate.maxPrice = params.maxPrice.toString();
+
+    if (params.startDate && params.endDate) {
+        queryToUpdate.startDate = params.startDate;
+        queryToUpdate.endDate = params.endDate;
+    }
+    if (params.petTypes) queryToUpdate.petTypes = params.petTypes; // join 后的字符串
+    if (params.housingConditions) queryToUpdate.housingConditions = params.housingConditions; // join 后的字符串
+    if (params.sortBy) {
+        queryToUpdate.sortBy = params.sortBy;
+        queryToUpdate.sortOrder = params.sortOrder;
+    }
+    
+    // 仅当生成的查询参数与当前路由查询参数不同时才更新路由
+    if (JSON.stringify(route.query) !== JSON.stringify(queryToUpdate)) {
+        router.replace({ query: queryToUpdate });
+    }
 
     const res: BackendResult<ApiServiceType[]> = await getActiveServices(params);
 
     if (res.code === 200 && Array.isArray(res.data)) {
       serviceList.value = res.data;
-      if (isUserSearch) { // 仅在用户主动搜索时给出反馈
-        if (serviceList.value.length === 0) {
-            ElMessage.warning('没有找到符合当前筛选条件的服务。');
-        } else {
-            ElMessage.success(`为您找到了 ${serviceList.value.length} 个相关服务。`);
-        }
+      if (isUserSearch) { // 只有用户主动搜索才给提示
+        ElMessage[serviceList.value.length > 0 ? 'success' : 'warning'](
+          serviceList.value.length > 0
+            ? `为您找到了 ${serviceList.value.length} 个相关服务。`
+            : '没有找到符合当前筛选条件的服务。'
+        );
       }
     } else {
-      // 如果 res.code 不是 200，或者 res.data 不是数组，都视为错误
-      serviceList.value = []; // 清空列表
+      serviceList.value = [];
       throw new Error(res.message || '获取服务列表数据格式错误或未返回数据');
     }
   } catch (error: any) {
     console.error("获取服务列表失败:", error);
-    loadError.value = true; // 设置错误状态
+    loadError.value = true;
     errorMessage.value = error.message || '获取服务列表时发生未知网络错误，请稍后重试。';
-    serviceList.value = []; // 清空列表
+    serviceList.value = [];
     if (isUserSearch) { // 用户主动搜索失败也给提示
         ElMessage.error(errorMessage.value);
     }
@@ -351,18 +442,46 @@ const fetchServices = async (isUserSearch: boolean = false) => {
 };
 
 const handleSearch = () => {
-  fetchServices(true); // 标记为用户搜索
+  fetchServices(true); // 标记为用户主动搜索
 };
 
 const resetFilters = () => {
-  // 使用深拷贝来重置，或者逐个属性赋值
+  // 深拷贝 initialSearchForm 以避免直接修改
   Object.assign(searchForm, JSON.parse(JSON.stringify(initialSearchForm)));
-  // 如果URL中还有参数，清空它们并重新获取无筛选的服务列表
+  // 清空URL查询参数并触发搜索
   if (Object.keys(route.query).length > 0) {
-      router.replace({ query: {} });
+      router.replace({ query: {} }); // 这会触发 watch, watch会调用 fetchServices(false)
+  } else {
+      fetchServices(false); // 如果query本来就空，直接获取所有
   }
-  fetchServices(false); // 获取所有服务
-  ElMessage.info('筛选条件已重置，显示所有可用服务。');
+  ElMessage.info('筛选条件已重置。');
+};
+
+watch(() => searchForm.sortBy, (newSortBy) => {
+  if (!newSortBy) {
+    searchForm.sortOrder = 'desc';
+  }
+  // 注意：由于所有筛选控件的 @change 都调用了 handleSearch，
+  // 单独监听 sortBy 来触发搜索可能导致重复调用。
+  // 如果确实需要在 sortBy 清空时自动刷新（且不是通过 resetFilters），
+  // 需要更复杂的逻辑来避免重复搜索。目前由 @change="handleSearch" 统一处理。
+});
+
+
+// 时长格式化函数
+const formatDuration = (minutes: number | undefined | null): string => {
+  if (minutes == null || minutes <= 0) {
+    return '次';
+  }
+  if (minutes < 60) {
+    return `${minutes}分钟`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (remainingMinutes === 0) {
+    return `${hours}小时`;
+  }
+  return `${hours}小时${remainingMinutes}分钟`;
 };
 
 const goToReservation = (serviceId: number | undefined) => {
@@ -386,10 +505,6 @@ const viewServiceDetail = (service: ApiServiceType) => {
   }
 };
 
-// computed property 不再需要，直接使用 serviceList.value
-const filteredServiceList = computed(() => serviceList.value);
-
-
 const hasRequirements = (service: ApiServiceType): boolean => {
   return !!(
     (service.requiredVaccinations && service.requiredVaccinations.trim() !== '') ||
@@ -398,25 +513,24 @@ const hasRequirements = (service: ApiServiceType): boolean => {
     (service.prohibitedBreeds && service.prohibitedBreeds.trim() !== '')
   );
 };
-
 </script>
 
 <style scoped lang="scss">
-/* 您的 SCSS 样式，保持不变 */
+/* 样式保持不变 */
 .service-search-page {
   background-color: #f4f6f8;
   min-height: 100vh;
 }
 .page-container {
-  max-width: 1400px; /* 或根据您的布局调整 */
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px 15px;
 }
 .sidebar-aside {
-  padding-right: 20px; /* 给侧边栏和主内容一些间距 */
+  padding-right: 20px;
   .filter-card {
-    position: sticky; /* 让筛选器在滚动时固定 */
-    top: 20px;      /* 固定在顶部以下20px */
+    position: sticky;
+    top: 20px;
     border: none;
     background-color: #ffffff;
     border-radius: 8px;
@@ -425,7 +539,7 @@ const hasRequirements = (service: ApiServiceType): boolean => {
     .filter-header {
        display: flex;
        align-items: center;
-       font-size: 1rem; // 16px
+       font-size: 1rem;
        font-weight: 600;
        color: #333;
        .el-icon { margin-right: 10px; font-size: 1.1rem; }
@@ -438,16 +552,16 @@ const hasRequirements = (service: ApiServiceType): boolean => {
   }
 }
 .main-content {
-  background-color: transparent; /* 主内容区域背景透明 */
+  background-color: transparent;
   border-radius: 0;
-  padding: 0; /* 移除内边距，让卡片自己处理 */
+  padding: 0;
   box-shadow: none;
 }
 .results-header {
   margin-bottom: 18px;
   color: #555;
   font-size: 0.9rem;
-  padding-left: 5px; /* 轻微调整，如果需要 */
+  padding-left: 5px;
 }
 .loading-state-main, .empty-state-main {
   padding: 50px 20px;
@@ -458,17 +572,17 @@ const hasRequirements = (service: ApiServiceType): boolean => {
 
 .service-list-grid-main {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* 响应式网格 */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 .service-card-main {
   background-color: #fff;
   border-radius: 8px;
-  border: 1px solid #e9ecef; // 更柔和的边框
+  border: 1px solid #e9ecef;
   transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   &:hover {
     transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.08); // 更明显的悬浮效果
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
   }
 
   .service-card-header {
@@ -477,24 +591,23 @@ const hasRequirements = (service: ApiServiceType): boolean => {
     align-items: center;
     .service-name {
       font-weight: 600;
-      font-size: 1.05rem; // 略微调整
-      color: #2c3e50; // 深蓝灰色
+      font-size: 1.05rem;
+      color: #2c3e50;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 70%; // 避免名称过长挤压价格
+      max-width: 70%;
     }
     .service-price {
       font-size: 0.9rem;
-      color: #dd6b20; // 橙色系，醒目
+      color: #dd6b20;
       font-weight: 600;
       white-space: nowrap;
     }
   }
-  // 使用 :deep() 来穿透 Element Plus 组件的封装，修改内部样式
   :deep(.el-card__header) {
-    padding: 16px; // Element Plus v2.3.x+ 默认就是 20px，可按需调整
-    border-bottom: 1px solid #f0f2f5; // 确保分隔线颜色
+    padding: 16px;
+    border-bottom: 1px solid #f0f2f5;
   }
   :deep(.el-card__body) {
     padding: 16px;
@@ -506,7 +619,7 @@ const hasRequirements = (service: ApiServiceType): boolean => {
        margin-bottom: 12px;
        padding-bottom: 10px;
        border-bottom: 1px solid #f0f2f5;
-       color: #6c757d; // Boostrap text-muted color
+       color: #6c757d;
        font-size: 0.8rem;
        .provider-name {
            font-weight: 500;
@@ -517,10 +630,10 @@ const hasRequirements = (service: ApiServiceType): boolean => {
        font-size: 0.85rem;
        color: #495057;
        line-height: 1.6;
-       min-height: calc(1.6em * 2); // 至少两行的高度
+       min-height: calc(1.6em * 2);
        display: -webkit-box;
        -webkit-box-orient: vertical;
-       -webkit-line-clamp: 2; // 最多显示2行
+       -webkit-line-clamp: 2;
        overflow: hidden;
        text-overflow: ellipsis;
        margin-bottom: 10px;
@@ -531,18 +644,17 @@ const hasRequirements = (service: ApiServiceType): boolean => {
      }
      .requirements {
         margin-top: 8px;
-        display: flex; // 让标签横向排列
-        flex-wrap: wrap; // 允许换行
-        gap: 6px; // 标签之间的间隙
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
         .requirement-tag {
-            // margin: 3px 5px 3px 0; // 旧的 margin
             .el-icon { vertical-align: -2px; margin-right: 3px; }
         }
      }
   }
    :deep(.el-card__footer) {
      padding: 12px 16px;
-     background-color: #fdfdfd; // 轻微的背景色
+     background-color: #fdfdfd;
      border-top: 1px solid #f0f2f5;
    }
    .card-actions { text-align: right; }

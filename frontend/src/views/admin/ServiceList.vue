@@ -4,114 +4,117 @@
       <template #header>
         <div class="card-header">
           <span>服务项目管理与审核</span>
-          <el-button :icon="Refresh" @click="refreshData" :loading="loading" circle title="刷新列表"></el-button>
+          <el-button :icon="Refresh" @click="refreshData" :loading="loading.global" circle title="刷新列表"></el-button>
         </div>
       </template>
 
       <el-tabs v-model="activeTab" @tab-click="handleTabClick">
         <el-tab-pane label="待审核" name="pending">
-          <ServiceTable :services="pendingServices" :loading="loading" @approve="handleApprove" @reject="handleReject" />
-          <el-empty v-if="!loading && pendingServices.length === 0" description="暂无待审核的服务"></el-empty>
+          <ServiceTable :services="pendingServices" :loading="loading.pending" @approve="handleApprove" @reject="handleReject" />
+          <el-empty v-if="!loading.pending && pendingServices.length === 0" description="暂无待审核的服务"></el-empty>
         </el-tab-pane>
         <el-tab-pane label="全部服务" name="all">
-          <ServiceTable :services="allServices" :loading="loading" @approve="handleApprove" @reject="handleReject" />
-           <el-empty v-if="!loading && allServices.length === 0" description="暂无任何服务项目"></el-empty>
+          <ServiceTable :services="allServices" :loading="loading.all" @approve="handleApprove" @reject="handleReject" />
+           <el-empty v-if="!loading.all && allServices.length === 0" description="暂无任何服务项目"></el-empty>
         </el-tab-pane>
          </el-tabs>
-
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { ElTabs, ElTabPane, ElCard, ElButton, ElIcon, ElMessage, ElMessageBox, ElEmpty } from 'element-plus';
+import { ref, onMounted } from 'vue'; // 移除了 computed，因为直接操作 ref 数组
+import { ElTabs, ElTabPane, ElCard, ElButton, ElMessage, ElMessageBox, ElEmpty } from 'element-plus'; // ElIcon 已在 ServiceTable 中使用或由 ElButton 自动处理
 import { Refresh } from '@element-plus/icons-vue';
-// 导入 Service 类型和 API 函数
-import type { Service } from '@/api/service';
+import type { Service as ApiServiceType } from '@/api/service'; // 统一使用 ApiServiceType
 import {
   getAllServicesForAdmin,
   getPendingServicesForAdmin,
   approveService,
   rejectService
-} from '@/api/service'; // 假设你把 API 函数放在 service.ts 里了
+} from '@/api/service';
 
-// 导入子组件 (我们将表格封装一下)
-import ServiceTable from './components/ServiceTable.vue'; // 假设表格在同目录下的 components 文件夹
+import ServiceTable from './components/ServiceTable.vue'; // 确保路径正确
 
-const loading = ref(false);
-const activeTab = ref('pending'); // 默认显示待审核
-const allServices = ref<Service[]>([]);
-const pendingServices = ref<Service[]>([]);
-// const approvedServices = ref<Service[]>([]); // 如果需要单独加载
-// const rejectedServices = ref<Service[]>([]); // 如果需要单独加载
+// 为不同的列表使用不同的加载状态
+const loading = ref({
+  global: false, // 用于刷新按钮和批准/拒绝操作
+  pending: false,
+  all: false,
+});
 
-// --- 数据获取 ---
+const activeTab = ref('pending');
+const allServices = ref<ApiServiceType[]>([]);
+const pendingServices = ref<ApiServiceType[]>([]);
+
 const fetchAllServices = async () => {
-  if (loading.value) return;
-  loading.value = true;
+  if (loading.value.all) return; // 防止重复加载
+  loading.value.all = true;
+  loading.value.global = true;
   try {
     const res = await getAllServicesForAdmin();
     if (res.code === 200 && Array.isArray(res.data)) {
       allServices.value = res.data;
+      console.log('Data received in AdminServiceList:', allServices.value); 
     } else {
       ElMessage.error(res.message || '获取全部服务列表失败');
+      allServices.value = []; // 出错时清空
     }
   } catch (error: any) {
     console.error("获取全部服务列表出错:", error);
-    ElMessage.error('获取全部服务列表请求失败: ' + (error?.message || '请检查网络'));
+    ElMessage.error('获取全部服务列表请求失败: ' + (error?.response?.data?.message || error?.message || '请检查网络'));
+    allServices.value = []; // 出错时清空
   } finally {
-    // 只有当活动 Tab 是 'all' 时才停止加载，避免干扰其他 Tab 的加载状态
-    if (activeTab.value === 'all') {
-       loading.value = false;
-    }
+    loading.value.all = false;
+    loading.value.global = false;
   }
 };
 
 const fetchPendingServices = async () => {
-   if (loading.value) return;
-   loading.value = true;
+   if (loading.value.pending) return; // 防止重复加载
+   loading.value.pending = true;
+   loading.value.global = true;
   try {
     const res = await getPendingServicesForAdmin();
     if (res.code === 200 && Array.isArray(res.data)) {
       pendingServices.value = res.data;
+      console.log('Data received in AdminServiceList:', pendingServices.value);
     } else {
       ElMessage.error(res.message || '获取待审核服务列表失败');
+      pendingServices.value = []; // 出错时清空
     }
   } catch (error: any) {
      console.error("获取待审核服务列表出错:", error);
-     ElMessage.error('获取待审核服务列表请求失败: ' + (error?.message || '请检查网络'));
+     ElMessage.error('获取待审核服务列表请求失败: ' + (error?.response?.data?.message || error?.message || '请检查网络'));
+     pendingServices.value = []; // 出错时清空
   } finally {
-     if (activeTab.value === 'pending') {
-        loading.value = false;
-     }
+     loading.value.pending = false;
+     loading.value.global = false;
   }
 };
 
-// --- Tab 切换处理 ---
 const handleTabClick = (tab: any) => {
   const tabName = tab.props.name;
-  console.log('切换到 Tab:', tabName);
+  activeTab.value = tabName; // 确保 activeTab 被更新
   if (tabName === 'pending') {
-    fetchPendingServices();
+    if (pendingServices.value.length === 0 || !loading.value.pending) { // 仅当列表为空或未在加载时获取
+        fetchPendingServices();
+    }
   } else if (tabName === 'all') {
-    fetchAllServices();
+    if (allServices.value.length === 0 || !loading.value.all) { // 仅当列表为空或未在加载时获取
+        fetchAllServices();
+    }
   }
-  // else if (tabName === 'approved') { fetchApprovedServices(); }
-  // else if (tabName === 'rejected') { fetchRejectedServices(); }
 };
 
-// --- 刷新当前 Tab 数据 ---
 const refreshData = () => {
   if (activeTab.value === 'pending') {
     fetchPendingServices();
   } else if (activeTab.value === 'all') {
     fetchAllServices();
   }
-   // ... 刷新其他 tab ...
 };
 
-// --- 审核操作处理 ---
 const handleApprove = async (serviceId: number) => {
    try {
     await ElMessageBox.confirm(
@@ -119,95 +122,100 @@ const handleApprove = async (serviceId: number) => {
       '确认批准',
       { confirmButtonText: '批准', cancelButtonText: '取消', type: 'success' }
     );
-    loading.value = true;
+    loading.value.global = true; // 使用全局loading
     const res = await approveService(serviceId);
     if (res.code === 200) {
       ElMessage.success('服务批准成功');
-      // 批准后刷新数据
-      refreshData();
-      // 如果 'all' 列表已加载，也可以尝试在本地更新状态，避免重新请求 all
+      // 从待审核列表中移除
+      pendingServices.value = pendingServices.value.filter(s => s.id !== serviceId);
+      // 更新 allServices 列表中的状态
       const indexInAll = allServices.value.findIndex(s => s.id === serviceId);
       if (indexInAll !== -1) {
-          allServices.value[indexInAll].reviewStatus = 'APPROVED';
-          allServices.value[indexInAll].rejectionReason = undefined; // 清空拒绝原因
+          allServices.value[indexInAll].reviewStatus = 'APPROVED'; // 确保状态字符串与后端一致
+          allServices.value[indexInAll].rejectionReason = undefined;
       }
+      // 如果当前就在“全部服务”页，且allServices为空，则刷新一下以显示批准后的项
+      if (activeTab.value === 'all' && allServices.value.length === 0) {
+          fetchAllServices();
+      }
+
     } else {
        ElMessage.error(res.message || '批准失败');
     }
   } catch (error: any) {
-     if (error !== 'cancel') {
+     if (error !== 'cancel' && error?.code !== 'cancel') { // 处理 ElMessageBox 取消操作
        console.error("批准服务时出错:", error);
-       ElMessage.error('批准失败: ' + (error?.message || '请稍后重试'));
+       ElMessage.error('批准操作失败: ' + (error?.response?.data?.message || error?.message || '请稍后重试'));
      } else {
        ElMessage.info('已取消批准');
      }
   } finally {
-      // 确保在所有情况下都停止加载，即使批准的是 all 列表中的项
-      loading.value = false;
+      loading.value.global = false;
   }
 };
 
 const handleReject = async (serviceId: number) => {
    try {
-    // 弹出输入框让管理员填写原因
     const { value: reason } = await ElMessageBox.prompt(
       `请输入拒绝服务项 (ID: ${serviceId}) 的原因：`,
       '确认拒绝',
       {
         confirmButtonText: '确认拒绝',
         cancelButtonText: '取消',
-        inputType: 'textarea', // 使用文本域输入
+        inputType: 'textarea',
         inputPlaceholder: '请填写拒绝原因',
-        inputValidator: (val) => { // 简单的非空验证
+        inputValidator: (val) => {
           if (!val || val.trim().length === 0) {
             return '拒绝原因不能为空';
+          }
+          if (val.trim().length > 200) { // 示例：原因长度限制
+            return '拒绝原因不能超过200个字符';
           }
           return true;
         }
       }
     );
 
-    // 用户点击了确认并输入了原因
-     loading.value = true;
-    const res = await rejectService(serviceId, reason.trim()); // 调用拒绝 API，传入原因
+    loading.value.global = true;
+    const res = await rejectService(serviceId, reason.trim());
     if (res.code === 200) {
       ElMessage.success('服务已拒绝');
-      refreshData(); // 刷新列表
-      // 更新 allServices 列表中的状态 (如果已加载)
+      pendingServices.value = pendingServices.value.filter(s => s.id !== serviceId);
        const indexInAll = allServices.value.findIndex(s => s.id === serviceId);
        if (indexInAll !== -1) {
-           allServices.value[indexInAll].reviewStatus = 'REJECTED';
-           allServices.value[indexInAll].rejectionReason = reason.trim(); // 更新拒绝原因
+           allServices.value[indexInAll].reviewStatus = 'REJECTED'; // 确保状态字符串与后端一致
+           allServices.value[indexInAll].rejectionReason = reason.trim();
        }
+        if (activeTab.value === 'all' && allServices.value.length === 0) {
+          fetchAllServices();
+      }
     } else {
        ElMessage.error(res.message || '拒绝失败');
     }
   } catch (error: any) {
-     if (error !== 'cancel' && error?.code !== 'cancel') { // ElMessageBox 的 prompt 取消可能返回特定对象
+     if (error !== 'cancel' && error?.code !== 'cancel') {
        console.error("拒绝服务时出错:", error);
-       // 检查是否是因为验证失败（用户没输入原因就点了确定）
         if (error?.message && error.message.includes('validation failed')) {
-             // ElMessageBox 的 validator 已经提示了，这里可以不用再弹
              console.warn('Reject reason validation failed.');
         } else {
-             ElMessage.error('拒绝失败: ' + (error?.message || '请稍后重试'));
+             ElMessage.error('拒绝操作失败: ' + (error?.response?.data?.message || error?.message || '请稍后重试'));
         }
      } else {
        ElMessage.info('已取消拒绝');
      }
   } finally {
-     loading.value = false;
+     loading.value.global = false;
   }
 };
 
-// --- 组件挂载时加载默认 Tab 数据 ---
 onMounted(() => {
+  // 初始加载当前激活的 Tab，默认为 'pending'
   if (activeTab.value === 'pending') {
     fetchPendingServices();
-  } else if (activeTab.value === 'all') {
+  } else {
+    // 如果初始不是pending，可以加载all，或者根据具体逻辑
     fetchAllServices();
   }
-  // ... 加载其他 tab 初始数据 ...
 });
 
 </script>

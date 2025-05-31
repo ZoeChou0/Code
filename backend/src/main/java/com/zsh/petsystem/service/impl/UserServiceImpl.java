@@ -6,14 +6,12 @@ import com.zsh.petsystem.dto.UserUpdateProfileDTO;
 import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.mapper.UserMapper;
 import com.zsh.petsystem.service.UserService;
-import com.zsh.petsystem.service.RedisService;
 
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -27,26 +25,17 @@ public class UserServiceImpl
 
   private final PasswordEncoder passwordEncoder;
 
-  @Autowired
-  private RedisService redisService;
-
-  private static final String USER_CACHE_PREFIX = "user:id:";
-  private static final Long USER_CACHE_TIMEOUT_SECONDS = 3600L;
-
   public UserServiceImpl(PasswordEncoder passwordEncoder) {
     this.passwordEncoder = passwordEncoder;
+
   }
 
   @Override
   public Users saveUser(Users user) {
-    // this.save(user);
-    // return user;
     boolean saved = this.save(user);
     if (saved && user.getId() != null) {
-      // 新用户保存成功后，也可以将其加入缓存
-      String cacheKey = USER_CACHE_PREFIX + user.getId();
-      redisService.set(cacheKey, user, USER_CACHE_TIMEOUT_SECONDS);
-      log.info("New user ID: {} saved and cached.", user.getId());
+
+      log.info("New user ID: {} saved.", user.getId());
     }
     return user;
   }
@@ -79,26 +68,12 @@ public class UserServiceImpl
 
   @Override
   public Users getById(Long id) {
-    if (id == null)
+    if (id == null) {
       return null;
-    String cacheKey = USER_CACHE_PREFIX + id;
-
-    // 1. 尝试从缓存获取
-    Users cachedUser = (Users) redisService.get(cacheKey);
-    if (cachedUser != null) {
-      log.info("Cache hit for user ID: {}", id);
-      return cachedUser;
     }
-
-    // 2. 缓存未命中，从数据库查询
-    log.info("Cache miss for user ID: {}, fetching from DB.", id);
-    Users userFromDb = super.getById(id); // 调用 MybatisPlus 的 getById
-
-    // 3. 如果从数据库中获取到数据，则存入缓存
-    if (userFromDb != null) {
-      redisService.set(cacheKey, userFromDb, USER_CACHE_TIMEOUT_SECONDS);
-      log.info("User ID: {} cached.", id);
-    }
+    // 移除了所有 Redis 缓存逻辑
+    log.info("Fetching user ID: {} from DB.", id);
+    Users userFromDb = super.getById(id); // 直接调用 MybatisPlus 的 getById
     return userFromDb;
   }
 
@@ -112,7 +87,7 @@ public class UserServiceImpl
 
   @Override
   public Users updateUserProfile(Long userId, UserUpdateProfileDTO dto) {
-    Users existing = this.getById(userId);
+    Users existing = this.getById(userId); // 此处 getById 已不走缓存
     if (existing == null) {
       throw new RuntimeException("用户不存在");
     }
@@ -160,10 +135,8 @@ public class UserServiceImpl
     if (changed) {
       boolean updated = this.updateById(existing); // 更新数据库
       if (updated) {
-        // 如果更新成功，删除缓存以确保下次读取最新数据
-        String cacheKey = USER_CACHE_PREFIX + userId;
-        redisService.delete(cacheKey);
-        log.info("User ID: {} updated in DB, cache cleared.", userId);
+        // 移除了删除缓存的逻辑
+        log.info("User ID: {} updated in DB.", userId);
       }
     }
     // 返回时去掉密码字段
@@ -178,7 +151,7 @@ public class UserServiceImpl
       throw new IllegalArgumentException("当前密码和新密码都不能为空");
     }
 
-    Users user = this.getById(userId);
+    Users user = this.getById(userId); // 此处 getById 已不走缓存
     if (user == null) {
       throw new RuntimeException("用户不存在");
     }
@@ -212,96 +185,88 @@ public class UserServiceImpl
         .eq(Users::getEmail, identifier) // Check email
         .or() // OR
         .eq(Users::getPhone, identifier); // Check phone
-    // Use getOne - assumes identifiers (name, email, phone) are unique across users
-    // If duplicates are possible, use list() and handle accordingly
     return this.getOne(queryWrapper);
   }
 
   @Override
   @Transactional // 添加事务
   public boolean banUser(Long userId) {
-    Users user = this.getById(userId);
+    Users user = this.getById(userId); // 此处 getById 已不走缓存
     if (user == null) {
-      // 或者抛出异常 throw new RuntimeException("用户不存在");
       log.warn("尝试禁用不存在的用户: ID {}", userId);
       return false;
     }
-    // 防止禁用管理员自己或其他管理员 (可选逻辑)
     if ("admin".equalsIgnoreCase(user.getRole())) {
       log.warn("尝试禁用管理员用户: ID {}, Email {}", userId, user.getEmail());
-      // 或者抛出异常 throw new IllegalArgumentException("不能禁用管理员账户");
       return false;
     }
-    // 检查是否已经是禁用状态
     if ("banned".equalsIgnoreCase(user.getStatus())) {
       log.info("用户 ID {} 已经是禁用状态", userId);
-      return true; // 可以认为操作是成功的（幂等性）
+      return true;
     }
 
-    user.setStatus("banned"); // 设置状态为禁用
+    user.setStatus("banned");
     log.info("正在禁用用户: ID {}, Email {}", userId, user.getEmail());
-    return this.updateById(user); // 更新数据库
+    return this.updateById(user);
   }
 
   @Override
   @Transactional // 添加事务
   public boolean unbanUser(Long userId) {
-    Users user = this.getById(userId);
+    Users user = this.getById(userId); // 此处 getById 已不走缓存
     if (user == null) {
       log.warn("尝试解禁不存在的用户: ID {}", userId);
       return false;
     }
-    // 检查是否已经是激活状态
     if ("active".equalsIgnoreCase(user.getStatus()) || user.getStatus() == null) {
       log.info("用户 ID {} 已经是激活状态或状态为空", userId);
-      return true; // 幂等性
+      return true;
     }
 
-    user.setStatus("active"); // 设置状态为激活
+    user.setStatus("active");
     log.info("正在解禁用户: ID {}, Email {}", userId, user.getEmail());
-    return this.updateById(user); // 更新数据库
+    return this.updateById(user);
   }
 
   @Override
   @Transactional
   public boolean approveProviderQualification(Long providerId) {
-    Users provider = this.getById(providerId);
+    Users provider = this.getById(providerId); // 此处 getById 已不走缓存
     if (provider == null || !"provider".equalsIgnoreCase(provider.getRole())) {
       log.warn("尝试批准非服务商或不存在的用户资质: ID {}", providerId);
-      return false; // 或抛出异常
+      return false;
     }
-    // 最好检查当前状态是否为 PENDING_REVIEW
     if (!"PENDING_REVIEW".equalsIgnoreCase(provider.getQualificationStatus())) {
       log.warn("尝试批准非待审核状态的服务商: ID {}, 当前状态 {}", providerId, provider.getQualificationStatus());
-      return false; // 或者根据业务逻辑决定是否允许从其他状态批准
+      return false;
     }
 
     provider.setQualificationStatus("APPROVED");
     log.info("正在批准服务商资质: ID {}, Email {}", providerId, provider.getEmail());
-    // TODO: 添加邮件通知服务商审核通过
     return this.updateById(provider);
   }
 
   @Override
   @Transactional
   public boolean rejectProviderQualification(Long providerId) {
-    Users provider = this.getById(providerId);
+    Users provider = this.getById(providerId); // 此处 getById 已不走缓存
     if (provider == null || !"provider".equalsIgnoreCase(provider.getRole())) {
       log.warn("尝试拒绝非服务商或不存在的用户资质: ID {}", providerId);
       return false;
     }
-    // 最好检查当前状态是否为 PENDING_REVIEW
     if (!"PENDING_REVIEW".equalsIgnoreCase(provider.getQualificationStatus())) {
       log.warn("尝试拒绝非待审核状态的服务商: ID {}, 当前状态 {}", providerId, provider.getQualificationStatus());
       return false;
     }
 
     provider.setQualificationStatus("REJECTED");
-    // provider.setQualificationRejectionReason(reason); // 如果需要记录原因，需要先在 Users
-    // 模型和数据库加字段
     log.info("正在拒绝服务商资质: ID {}, Email {}", providerId, provider.getEmail());
-    // TODO: 添加邮件通知服务商审核被拒
     return this.updateById(provider);
   }
 
+  @Override
+  public List<Users> getAllRegularUsers() {
+    log.info("Fetching all regular users (role='user')");
+    return this.lambdaQuery().eq(Users::getRole, "user").list(); // <<--- 实现只查询 role 为 'user' 的用户
+  }
 }

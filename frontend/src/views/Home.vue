@@ -17,10 +17,10 @@
         <div class="service-type">
           <span>服务类型：</span>
           <el-radio-group v-model="serviceType">
-            <el-radio-button label="寄养" />
-            <el-radio-button label="上门喂养" />
-            <el-radio-button label="日托" />
-            <el-radio-button label="遛狗" />
+            <el-radio-button label="宠物寄养" />
+            <el-radio-button label="宠物美容" />
+            <el-radio-button label="宠物训练" />
+            <el-radio-button label="宠物医疗" />
           </el-radio-group>
         </div>
         <div class="search-fields">

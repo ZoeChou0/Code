@@ -1,223 +1,17 @@
-// package com.zsh.petsystem.controller;
-
-// import com.zsh.petsystem.common.Result;
-// import com.zsh.petsystem.dto.LoginRequestDTO;
-// import com.zsh.petsystem.dto.UserUpdateProfileDTO;
-// import com.zsh.petsystem.model.Users;
-// import com.zsh.petsystem.service.UserService;
-// import com.zsh.petsystem.util.JwtUtil;
-
-// import lombok.extern.slf4j.Slf4j;
-
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.http.HttpStatus; // 导入 HttpStatus
-// import org.springframework.http.ResponseEntity;
-// // 导入 PasswordEncoder (你需要添加 Spring Security 依赖并配置 Bean)
-// // import org.springframework.security.crypto.password.PasswordEncoder;
-// import org.springframework.web.bind.annotation.*;
-// import org.springframework.security.core.Authentication;
-// import org.springframework.security.core.context.SecurityContextHolder;
-
-// import java.util.Collections;
-// import java.util.List;
-// import java.util.Map; // 导入 Map
-
-// @RestController
-// @RequestMapping("/users")
-// @CrossOrigin
-// @Slf4j
-// public class UserController {
-
-//     @Autowired
-//     private UserService userService;
-
-//     // 注入 PasswordEncoder Bean (需要在配置类中定义 @Bean public PasswordEncoder
-//     // passwordEncoder())
-//     // @Autowired
-//     // private PasswordEncoder passwordEncoder; // 取消注释并确保已配置
-
-//     /**
-//      * 添加用户 (可能需要管理员权限)
-//      * 
-//      * @param user 用户信息
-//      * @return ResponseEntity
-//      */
-//     @PostMapping("/add")
-//     // TODO: 添加权限控制, 例如 @PreAuthorize("hasRole('ADMIN')")
-//     public ResponseEntity<?> addUser(@RequestBody Users user) {
-//         // TODO: 在保存前进行密码哈希处理
-//         // String hashedPassword = passwordEncoder.encode(user.getPassword());
-//         // user.setPassword(hashedPassword);
-
-//         try {
-//             userService.saveUser(user); // 假设 saveUser 内部处理了哈希 (更好的方式)
-//             // 或者直接在这里处理哈希后调用 save
-//             return ResponseEntity.status(HttpStatus.CREATED).body("新用户添加成功"); // 201 Created
-//         } catch (Exception e) {
-//             // 处理可能的异常，例如数据库错误
-//             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("添加用户失败: " + e.getMessage());
-//         }
-//     }
-
-//     /**
-//      * 用户注册
-//      * 
-//      * @param user 注册用户信息 (包含 email, phone, password 等)
-//      * @return ResponseEntity
-//      */
-//     @PostMapping("/register")
-//     public ResponseEntity<?> register(@RequestBody Users user) {
-//         // ... (检查邮箱、手机号是否存在的代码) ...
-
-//         // **设置默认角色** (取消注释或添加这行)
-//         if (user.getRole() == null || user.getRole().isEmpty()) { // 只有当角色未指定时才设置默认值
-//             user.setRole("user"); // 设置默认角色为 "user"
-//         }
-
-//         // ... (密码加密的代码) ...
-
-//         try {
-//             userService.saveUser(user); // 保存带有角色的用户
-//             return ResponseEntity.status(HttpStatus.CREATED).body(Result.success("注册成功")); // 使用 Result 包装
-//         } catch (Exception e) {
-//             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                     .body(Result.failed("注册失败: " + e.getMessage()));
-//         }
-//     }
-
-//     /**
-//      * 获取所有用户 (需要管理员权限)
-//      * 
-//      * @return 用户列表
-//      */
-//     @GetMapping("/getAll")
-//     // TODO: 添加权限控制, 例如 @PreAuthorize("hasRole('ADMIN')")
-//     public ResponseEntity<?> getAllUsers() {
-//         try {
-//             List<Users> users = userService.getAllUsers();
-//             return ResponseEntity.ok(users);
-//         } catch (Exception e) {
-//             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("获取用户列表失败: " + e.getMessage());
-//         }
-//     }
-
-//     /**
-//      * 用户登录
-//      * 
-//      * @param user 包含登录凭证 (email, password) 的对象
-//      * @return ResponseEntity 包含 JWT Token 或错误信息
-//      */
-//     @PostMapping("/login")
-//     public ResponseEntity<?> login(@RequestBody LoginRequestDTO loginRequest) {
-
-//         Users dbUser = userService.findUserByIdentifier(loginRequest.getIdentifier());
-
-//         if (dbUser == null) {
-//             // 统一错误提示
-//             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户名、邮箱或手机号或密码错误"));
-//         }
-
-//         // --- 安全警告：移除哈希验证，使用明文比较 ---
-//         // **极其不安全！仅用于临时测试！**
-//         // 原来的哈希比较:
-//         // boolean passwordMatches = passwordEncoder.matches(loginRequest.getPassword(),
-//         // dbUser.getPassword());
-//         // if (!passwordMatches) { ... }
-
-//         // **修改为明文比较:**
-//         if (!loginRequest.getPassword().equals(dbUser.getPassword())) {
-//             log.warn("正在使用不安全的明文密码比较进行登录验证！"); // 添加日志警告
-//             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户名、邮箱或手机号或密码错误"));
-//         }
-//         // --- 明文比较结束 ---
-
-//         // 密码验证通过，生成 JWT
-//         String tokenValue = JwtUtil.generateToken(dbUser.getId(), dbUser.getEmail(), dbUser.getRole());
-//         Map<String, String> tokenData = Collections.singletonMap("token", tokenValue);
-
-//         return ResponseEntity.ok(Result.success(tokenData));
-//     }
-
-//     @GetMapping("/info")
-//     public ResponseEntity<?> getUserInfo(Authentication authentication) {
-//         log.info("--- Entering /users/info endpoint ---");
-//         if (authentication != null) {
-//             log.info("Received Authentication object: Principal={}, IsAuthenticated={}, Authorities={}",
-//                     authentication.getPrincipal(),
-//                     authentication.isAuthenticated(),
-//                     authentication.getAuthorities());
-//         } else {
-//             log.warn("Received null Authentication object in /users/info");
-//         }
-//         if (authentication == null || !authentication.isAuthenticated()) {
-//             log.warn("/users/info accessed without proper authentication.");
-//             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户未认证"));
-//         }
-//         String userEmail = authentication.getName();
-//         log.info("Fetching info for user: {}", userEmail);
-//         Users user = userService.findByEmail(userEmail);
-//         if (user == null) {
-//             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.failed("用户未找到"));
-//         }
-//         // 重要：返回前清除密码等敏感信息
-//         user.setPassword(null);
-//         log.info("Returning user info successfully for: {}", userEmail);
-//         return ResponseEntity.ok(Result.success(user)); // 使用 Result 包装
-//     }
-
-//     @PutMapping("/profile")
-//     public ResponseEntity<?> updateUserProfile(@RequestBody UserUpdateProfileDTO dto, Authentication authentication) {
-//         if (authentication == null || !authentication.isAuthenticated()) {
-//             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Result.failed("用户未认证"));
-//         }
-//         String userEmail = authentication.getName();
-//         Users currentUser = userService.findByEmail(userEmail);
-//         if (currentUser == null) {
-//             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Result.failed("用户未找到"));
-//         }
-
-//         try {
-//             Users updatedUser = userService.updateUserProfile(currentUser.getId(), dto);
-//             return ResponseEntity.ok(Result.success(updatedUser));
-//         } catch (RuntimeException e) {
-//             // 更精细的错误处理，例如手机号重复等
-//             return ResponseEntity.badRequest().body(Result.failed("更新失败: " + e.getMessage()));
-//         } catch (Exception e) {
-//             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Result.failed("更新时发生服务器错误"));
-//         }
-//     }
-
-//     @PostMapping("/logout") // 使用 POST 请求更符合语义
-//     public ResponseEntity<?> logout(Authentication authentication) {
-//         if (authentication != null && authentication.isAuthenticated()) {
-//             String username = authentication.getName(); // 获取当前用户名 (邮箱)
-//             log.info("User '{}' logging out.", username);
-
-//             SecurityContextHolder.clearContext();
-
-//             return ResponseEntity.ok(Result.success(null, "登出成功"));
-//         } else {
-//             // 如果用户未认证就调用 logout，可以返回错误或直接成功
-//             log.warn("Unauthenticated user attempted to call logout.");
-//             // 返回成功，避免泄露用户是否登录的信息
-//             return ResponseEntity.ok(Result.success(null, "已登出"));
-//         }
-//     }
-// }
-
 package com.zsh.petsystem.controller;
 
+import com.zsh.petsystem.common.Result;
 import com.zsh.petsystem.dto.LoginRequestDTO;
 import com.zsh.petsystem.dto.UserUpdateProfileDTO;
 import com.zsh.petsystem.entity.Users;
 import com.zsh.petsystem.service.UserService;
 import com.zsh.petsystem.util.JwtUtil;
+import com.zsh.petsystem.service.CaptchaService;
+import com.zsh.petsystem.dto.RegisterDataDTO;
 
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.http.HttpStatus; // 不再需要
-// import org.springframework.http.ResponseEntity; // 不再需要
 import org.springframework.security.crypto.password.PasswordEncoder; // 导入 (如果注册/添加需要)
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -237,9 +31,11 @@ public class UserController {
     @Autowired
     private UserService userService;
 
-    // 假设 PasswordEncoder Bean 已配置并在需要时注入
-    // @Autowired
-    // private PasswordEncoder passwordEncoder;
+    @Autowired
+    private CaptchaService captchaService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     /**
      * 添加用户 (权限待定) - 返回 void
@@ -250,14 +46,6 @@ public class UserController {
     @PostMapping("/add")
     // TODO: 添加权限控制, 例如 @PreAuthorize("hasRole('ADMIN')")
     public void addUser(@RequestBody Users user) {
-        // TODO: 确认 userService.saveUser 是否处理密码哈希，否则需要在这里处理
-        // if (passwordEncoder != null && user.getPassword() != null) {
-        // user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // } else if (passwordEncoder == null) {
-        // log.warn("PasswordEncoder 未注入，密码未哈希！");
-        // // 或者抛出配置异常 throw new IllegalStateException("PasswordEncoder not
-        // configured");
-        // }
 
         // 如果 saveUser 内部有唯一约束（如 email），重复添加会抛出异常，由 GlobalExceptionHandler 处理
         userService.saveUser(user);
@@ -265,36 +53,46 @@ public class UserController {
         // 成功时方法正常结束，会被 GlobalResponseAdvice 包装成 Result.success(null)
     }
 
-    /**
-     * 用户注册 - 返回 void
-     * 
-     * @param user 注册用户信息
-     */
     @PostMapping("/register")
-    public void register(@RequestBody Users user) {
-        // 检查邮箱、手机号是否已存在 (如果需要)
-        if (userService.existByEmail(user.getEmail())) {
-            throw new RuntimeException("邮箱已被注册");
-        }
-        if (user.getPhone() != null && userService.existByPhone(user.getPhone())) {
-            throw new RuntimeException("手机号已被注册");
+    public Result<?> register(@RequestBody RegisterDataDTO registerDto) {
+
+        boolean isCodeValid = captchaService.verifyCaptcha(registerDto.getEmail(), registerDto.getVerificationCode());
+        if (!isCodeValid) {
+            return Result.failed("验证码错误或已过期");
         }
 
-        // 设置默认角色
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("user");
+        // 2. 检查邮箱、手机号是否已存在
+        if (userService.existByEmail(registerDto.getEmail())) {
+            return Result.failed("邮箱已被注册"); // <<--- 返回Result对象
         }
-        // 设置默认状态
-        user.setStatus("active"); // 确保新用户状态是 active
+        if (registerDto.getPhone() != null && userService.existByPhone(registerDto.getPhone())) {
+            return Result.failed("手机号已被注册"); // <<--- 返回Result对象
+        }
 
-        // TODO: 确认密码哈希是在 saveUser 内部还是需要在这里处理
-        // if (passwordEncoder != null && user.getPassword() != null) {
-        // user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // }
+        // 3. 创建 Users 实体并填充数据
+        Users newUser = new Users();
+        newUser.setName(registerDto.getName());
+        newUser.setEmail(registerDto.getEmail());
+        newUser.setPhone(registerDto.getPhone());
+        // 对密码进行哈希处理
+        newUser.setPassword(passwordEncoder.encode(registerDto.getPassword())); // <<--- 哈希密码
+        newUser.setRole(
+                registerDto.getRole() == null || registerDto.getRole().isEmpty() ? "user" : registerDto.getRole());
+        newUser.setStatus("active"); // 新用户默认为激活状态
 
-        userService.saveUser(user);
-        log.info("用户 {} 注册成功", user.getEmail());
-        // 成功时方法正常结束
+        // 4. 保存用户
+        try {
+            userService.saveUser(newUser);
+            // 注册成功后，可以选择性地移除Redis中的验证码，防止重复使用
+            // stringRedisTemplate.delete(redisKey);
+            captchaService.clearCaptcha(registerDto.getEmail()); // 假设CaptchaService有此方法
+
+            log.info("用户 {} 注册成功", newUser.getEmail());
+            return Result.success(null, "注册成功"); // <<--- 返回Result对象
+        } catch (Exception e) {
+            log.error("用户 {} 注册失败: {}", registerDto.getEmail(), e.getMessage(), e);
+            return Result.failed("注册过程中发生错误，请稍后重试。"); // <<--- 返回Result对象
+        }
     }
 
     /**
@@ -452,5 +250,28 @@ public class UserController {
             log.warn("未认证的用户尝试调用登出接口。");
         }
         // 成功则方法正常结束，Advice 会包装成 Result.success(null)
+    }
+
+    @PostMapping("/send-email-code")
+    public Result<?> sendEmailVerificationCode(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return Result.failed("邮箱不能为空");
+        }
+        try {
+            boolean success = captchaService.sendCaptcha(email);
+            if (success) {
+                return Result.success(null, "验证码已发送至您的邮箱，有效期5分钟，请注意查收。");
+            } else {
+                // 此路径可能不会被命中，因为 CaptchaServiceImpl 中的失败通常会抛出异常
+                return Result.failed("验证码发送失败，请稍后重试。");
+            }
+        } catch (RuntimeException e) {
+            // 捕获 CaptchaService 中抛出的业务异常 (例如频率限制)
+            return Result.failed(e.getMessage());
+        } catch (Exception e) {
+            log.error("发送邮件验证码至 {} 时发生错误: {}", email, e.getMessage(), e);
+            return Result.failed("发送验证码时发生未知系统错误。");
+        }
     }
 }

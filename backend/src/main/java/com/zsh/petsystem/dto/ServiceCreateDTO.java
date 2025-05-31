@@ -23,7 +23,7 @@ public class ServiceCreateDTO {
 
   @NotNull(message = "价格不能为空")
   @DecimalMin(value = "0.01", message = "价格必须大于0")
-  private BigDecimal price;
+  private Double price;
 
   @NotNull(message = "服务时长不能为空")
   @Min(value = 1, message = "服务时长至少为1分钟")
@@ -50,6 +50,9 @@ public class ServiceCreateDTO {
 
   @Size(max = 255, message = "不接受品种说明长度不能超过255个字符")
   private String prohibitedBreeds;
+
+  @Size(max = 100, message = "服务类型不能为空")
+  private String category;
 
   // 假设 ServiceItem.java 中的字段与 Pet.java 类似
   // private String species; // 允许的服务宠物类型，例如 "Dog", "Cat", 或 "Dog,Cat"

@@ -96,8 +96,11 @@ const formatAddress = (provider: ProviderDTO): string => {
 
 const viewProviderDetails = (provider: ProviderDTO) => {
   console.log('查看服务商详情: ', provider);
-  ElMessage.info(`查看服务商 ${provider.name} 的详情 (功能待实现)`);
-  // Example: router.push({ name: 'AdminProviderDetailsPageName', params: { id: provider.id } });
+  if (provider && provider.id) {
+    router.push({ name: 'AdminProviderDetails', params: { id: provider.id.toString() } });
+  } else {
+    ElMessage.error('无法查看详情：服务商ID无效。');
+  }
 };
 </script>
 

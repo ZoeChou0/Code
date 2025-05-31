@@ -36,4 +36,6 @@ public interface UserService extends IService<Users> {
   boolean approveProviderQualification(Long providerId);
 
   boolean rejectProviderQualification(Long providerId);
+
+  List<Users> getAllRegularUsers();
 }

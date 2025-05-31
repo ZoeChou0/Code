@@ -11,7 +11,8 @@ public class ServiceItemAdminViewDTO {
   private String providerName; // 可以考虑从 Users 表关联查询得到
   private String name;
   private String description;
-  private BigDecimal price;
+  private String category;
+  private Double price;
   private Integer duration;
   private Integer dailyCapacity;
   private String reviewStatus;

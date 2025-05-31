@@ -88,12 +88,12 @@ export function sendVerificationCode(email: string): Promise<BackendResult<Login
 }
 
 // 发送邮箱验证码
-export function sendEmailCode(email: string): Promise<BackendResult<LoginSuccessData>> {
+export function sendEmailCode(email: string): Promise<BackendResult<null>> {
   return request({
     url: '/users/send-email-code',
     method: 'post',
     data: { email }
-  })
+  });
 }
 
 //更新用户信息

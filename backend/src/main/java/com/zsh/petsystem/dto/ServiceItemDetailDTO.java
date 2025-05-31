@@ -14,6 +14,7 @@ public class ServiceItemDetailDTO {
   private String description;
   private Double price;
   private Integer duration;
+  private String category;
   private Long providerId;
   private Integer dailyCapacity;
   private String requiredVaccinations;

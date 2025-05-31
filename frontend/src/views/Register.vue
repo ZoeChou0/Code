@@ -147,26 +147,40 @@ const rules = reactive<FormRules>({
 })
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
+  if (!formRef.value) return;
 
   await formRef.value.validate(async (valid, fields) => {
     if (valid) {
-      loading.value = true
+      loading.value = true;
       try {
-        const { confirmPassword, ...registerData } = form
-        await register(registerData as RegisterData)
-        ElMessage.success('注册成功')
-        router.push('/login')
+        const { confirmPassword, ...registerDataToSend } = form;
+        await register(registerDataToSend as RegisterData);
+        ElMessage.success('注册成功');
+        router.push('/login');
       } catch (error: any) {
-        ElMessage.error(error.response?.data || '注册失败')
+        const errorMessage = error?.response?.data?.message || error?.message || '注册失败，请检查您的输入或稍后再试';
+        ElMessage.error(errorMessage);
+        console.error('注册失败详情:', error.response?.data || error);
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     } else {
-      console.log('error submit!', fields)
+      console.log('表单校验失败!', fields);
+      if (fields) {
+        // 获取第一个校验失败的字段的错误信息
+        const firstErrorField = Object.keys(fields)[0]; // 获取第一个错误的字段名
+        if (firstErrorField && fields[firstErrorField] && fields[firstErrorField].length > 0) {
+          const specificErrorMessage = fields[firstErrorField][0].message; // 获取该字段的第一条错误信息
+          ElMessage.error(specificErrorMessage || '请检查表单输入项是否正确');
+        } else {
+          ElMessage.error('请检查表单输入项是否正确'); // 备用提示
+        }
+      } else {
+        ElMessage.error('请检查表单输入项是否正确'); // 备用提示
+      }
     }
-  })
-}
+  });
+};
 </script>
 
 <style scoped lang="scss">

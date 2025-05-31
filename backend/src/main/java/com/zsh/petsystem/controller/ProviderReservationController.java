@@ -42,7 +42,13 @@ public class ProviderReservationController {
   // 辅助方法：将 Reservation 转换为 ReservationProviderViewDTO
   private ReservationProviderViewDTO convertToProviderViewDto(Reservation reservation) {
     ReservationProviderViewDTO dto = new ReservationProviderViewDTO();
-    BeanUtils.copyProperties(reservation, dto);
+    BeanUtils.copyProperties(reservation, dto); // 这会复制同名且类型兼容的字段
+
+    dto.setReservationStartDate(reservation.getReservationStartDate());
+    dto.setServiceStartTime(reservation.getServiceStartTime());
+
+    dto.setReservationEndDate(reservation.getReservationEndDate());
+    dto.setServiceEndTime(reservation.getServiceEndTime());
 
     if (reservation.getUserId() != null) {
       Users user = userService.getById(reservation.getUserId());

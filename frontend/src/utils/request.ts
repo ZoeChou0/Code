@@ -1,6 +1,7 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
+import type { BackendResult } from '@/types/api';
 
 // 1. 新建一个 axios 实例
 const instance = axios.create({
@@ -24,19 +25,32 @@ instance.interceptors.request.use((config) => {
 
 // 3. 响应拦截器：把 data 拿出来
 instance.interceptors.response.use(
-  response => response.data,
+  response => response.data, // 如果 code 是 200, 返回 Result 对象本身
   error => {
-    const message = error?.response?.data || error.message || '请求失败'
+    // 后端返回的业务错误 (例如 Result.code 是 400 但 HTTP 状态码可能是 200 或 4xx)
+    // 或者网络错误、服务器500错误
+    const backendResult = error?.response?.data as BackendResult<any>; // 尝试获取 Result 对象
+    let message = '请求失败';
+
+    if (backendResult && backendResult.message) { // 优先使用 Result.message
+      message = backendResult.message;
+    } else if (error.message) { // 其次使用 Axios 的 error.message (通常是网络错误)
+      message = error.message;
+    }
+    // 您原有的逻辑
+    // const message = error?.response?.data || error.message || '请求失败'
+
 
     if (error.response?.status === 401) {
-      ElMessage.error(message) // 显示“邮箱或密码错误”之类
+      ElMessage.error(message); // 例如：Token 失效，密码错误等
+      // TODO: 可能需要引导用户重新登录
     } else {
-      ElMessage.error(message)
+      ElMessage.error(message); // 显示具体的业务错误或通用网络错误
     }
 
-    return Promise.reject(error)
+    return Promise.reject(error); // 继续传递错误，让调用方catch
   }
-)
+);
 
 // 4. 改写默认导出，让它的签名是 Promise<T>
 export default function request<T = any>(

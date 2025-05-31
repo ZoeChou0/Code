@@ -246,7 +246,7 @@ const handleSubmit = async () => {
             ...payload,
             id: editingServiceId.value,
             // These fields are set by backend or not editable here
-            reviewStatus: 'PENDING', // Or fetch existing status if needed, but usually editing resets status
+            reviewStatus: 'PENDING_APPROVAL', // Or fetch existing status if needed, but usually editing resets status
             providerId: 0, // Backend should use authenticated provider ID
           };
           res = await updateService(updatePayload);
@@ -323,7 +323,7 @@ const handleDelete = (id: number) => {
 // Format review status for display
 const formatReviewStatus = (status: Service['reviewStatus']): string => {
   switch (status) {
-    case 'PENDING': return '待审核';
+    case 'PENDING_APPROVAL': return '待审核';
     case 'APPROVED': return '已批准';
     case 'REJECTED': return '已拒绝';
     default: return '未知';
@@ -333,7 +333,7 @@ const formatReviewStatus = (status: Service['reviewStatus']): string => {
 // Get tag type for status display
 const getStatusTagType = (status: Service['reviewStatus']): ('warning' | 'success' | 'danger' | 'info') => {
   switch (status) {
-    case 'PENDING': return 'warning';
+    case 'PENDING_APPROVAL': return 'warning';
     case 'APPROVED': return 'success';
     case 'REJECTED': return 'danger';
     default: return 'info';

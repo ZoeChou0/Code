@@ -15,7 +15,6 @@
             <template v-else>
               <!-- 普通用户菜单 -->
               <template v-if="userStore.isUser()">
-                <router-link to="/services">服务列表</router-link>
                 <router-link to="/pets">我的宠物</router-link>
                 <router-link to="/orders">我的订单</router-link>
                 <router-link to="/notifications">消息通知</router-link>

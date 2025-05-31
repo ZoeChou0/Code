@@ -69,18 +69,38 @@ public class ServiceItemServiceImpl
     public boolean approveServiceItem(Long serviceItemId) {
         ServiceItem item = this.getById(serviceItemId);
         if (item == null) {
+            log.warn("尝试批准不存在的服务项 ID: {}", serviceItemId);
             throw new RuntimeException("服务项不存在");
         }
-        if ("PENDING".equals(item.getReviewStatus()) || "REJECTED".equals(item.getReviewStatus())) {
+
+        log.info("正在处理批准服务项 ID: {}, 当前状态: {}", serviceItemId, item.getReviewStatus());
+
+        // 检查状态是否允许批准，主要检查 PENDING_APPROVAL，也允许从 PENDING 或 REJECTED 批准
+        if ("PENDING_APPROVAL".equalsIgnoreCase(item.getReviewStatus()) ||
+                "PENDING".equalsIgnoreCase(item.getReviewStatus()) || // 保留以防万一
+                "REJECTED".equalsIgnoreCase(item.getReviewStatus())) {
+
             item.setReviewStatus("APPROVED");
-            item.setRejectionReason(null);
+            item.setRejectionReason(null); // 批准时清除拒绝原因
+            // 不需要手动设置 updatedAt，MyMetaObjectHandler 会处理
+            // item.setUpdatedAt(LocalDateTime.now());
+
             boolean updated = this.updateById(item);
+            log.info("尝试更新服务项 ID: {} 到 APPROVED 状态，数据库 updateById 返回: {}", serviceItemId, updated);
+
             if (updated) {
-                notifyProvider(item, "服务已经通过审核",
-                        String.format("恭喜！您发布的服务 '%s' 已经通过审核。", item.getName()));
+                log.info("服务项 ID: {} 成功更新状态为 APPROVED。", serviceItemId);
+                // 解注释并确保 notifyProvider 方法及其依赖（userService, emailApi）已正确注入和工作
+                // notifyProvider(item, "服务已经通过审核",
+                // String.format("恭喜！您发布的服务 '%s' 已经通过审核。", item.getName()));
+            } else {
+                log.error("服务项 ID: {} 更新状态为 APPROVED 失败 (updateById 返回 false)。当前数据库状态可能未改变。", serviceItemId);
             }
             return updated;
         }
+
+        log.warn("服务项 ID {} 的状态为 '{}' (期望 PENDING_APPROVAL, PENDING, 或 REJECTED)，不满足批准条件。", serviceItemId,
+                item.getReviewStatus());
         return false;
     }
 
@@ -89,39 +109,57 @@ public class ServiceItemServiceImpl
     public boolean rejectServiceItem(Long serviceItemId, String reason) {
         ServiceItem item = this.getById(serviceItemId);
         if (item == null) {
+            log.warn("尝试拒绝不存在的服务项 ID: {}", serviceItemId);
             throw new RuntimeException("服务项不存在");
         }
-        if ("PENDING".equals(item.getReviewStatus())) {
+        log.info("正在处理拒绝服务项 ID: {}, 当前状态: {}, 拒绝原因: {}", serviceItemId, item.getReviewStatus(), reason);
+
+        // 通常只允许拒绝处于待审核状态的服务
+        if ("PENDING_APPROVAL".equalsIgnoreCase(item.getReviewStatus()) ||
+                "PENDING".equalsIgnoreCase(item.getReviewStatus())) {
+
             item.setReviewStatus("REJECTED");
             item.setRejectionReason(reason);
+            // 不需要手动设置 updatedAt
+
             boolean updated = this.updateById(item);
+            log.info("尝试更新服务项 ID: {} 到 REJECTED 状态，数据库 updateById 返回: {}", serviceItemId, updated);
 
             if (updated) {
-                notifyProvider(item, "您的服务项审核未通过",
-                        String.format("抱歉，您发布的服务 '%s' 未能通过审核。原因：%s", item.getName(), reason));
+                log.info("服务项 ID: {} 成功更新状态为 REJECTED。", serviceItemId);
+                // 解注释并确保 notifyProvider 方法及其依赖已正确注入和工作
+                // notifyProvider(item, "您的服务项审核未通过",
+                // String.format("抱歉，您发布的服务 '%s' 未能通过审核。原因：%s", item.getName(), reason));
+            } else {
+                log.error("服务项 ID: {} 更新状态为 REJECTED 失败 (updateById 返回 false)。当前数据库状态可能未改变。", serviceItemId);
             }
             return updated;
         }
+        log.warn("服务项 ID {} 的状态为 '{}' (期望 PENDING_APPROVAL 或 PENDING)，不满足拒绝条件。", serviceItemId, item.getReviewStatus());
         return false;
     }
 
-    private void notifyProvider(ServiceItem item, String subject, String content) {
-        if (item.getProviderId() != null) {
-            Users provider = userService.getById(item.getProviderId());
-            if (provider != null && provider.getEmail() != null) {
-                try {
-                    emailApi.sendEmail(provider.getEmail(), subject, content);
-                    System.out.println("邮件已发送至: " + provider.getEmail());
-                } catch (Exception e) {
-                    System.err.println("发送邮件给服务商失败 (User ID: " + provider.getId() + "): " + e.getMessage());
-                }
-            } else {
-                System.err.println("无法发送通知：未找到服务商信息或邮箱为空 (Provider ID: " + item.getProviderId() + ")");
-            }
-        } else {
-            System.err.println("无法发送通知：服务项缺少 Provider ID (ServiceItem ID: " + item.getId() + ")");
-        }
-    }
+    // private void notifyProvider(ServiceItem item, String subject, String content)
+    // {
+    // if (item.getProviderId() != null) {
+    // Users provider = userService.getById(item.getProviderId());
+    // if (provider != null && provider.getEmail() != null) {
+    // try {
+    // emailApi.sendEmail(provider.getEmail(), subject, content);
+    // System.out.println("邮件已发送至: " + provider.getEmail());
+    // } catch (Exception e) {
+    // System.err.println("发送邮件给服务商失败 (User ID: " + provider.getId() + "): " +
+    // e.getMessage());
+    // }
+    // } else {
+    // System.err.println("无法发送通知：未找到服务商信息或邮箱为空 (Provider ID: " +
+    // item.getProviderId() + ")");
+    // }
+    // } else {
+    // System.err.println("无法发送通知：服务项缺少 Provider ID (ServiceItem ID: " +
+    // item.getId() + ")");
+    // }
+    // }
 
     @Override
     @Transactional
@@ -202,6 +240,10 @@ public class ServiceItemServiceImpl
         }
         if (updateDTO.getDuration() != null && !updateDTO.getDuration().equals(existingItem.getDuration())) {
             existingItem.setDuration(updateDTO.getDuration());
+            changed = true;
+        }
+        if (updateDTO.getCategory() != null && !updateDTO.getCategory().equals(existingItem.getCategory())) {
+            existingItem.setCategory(updateDTO.getCategory());
             changed = true;
         }
 
@@ -315,8 +357,10 @@ public class ServiceItemServiceImpl
         }
 
         ServiceItem serviceItem = new ServiceItem();
-        // 使用 BeanUtils 复制匹配的属性，或者手动设置
+
         BeanUtils.copyProperties(dto, serviceItem);
+
+        serviceItem.setCategory(dto.getCategory());
 
         // 设置由后端逻辑决定的字段
         serviceItem.setProviderId(providerId);

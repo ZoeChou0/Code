@@ -3,6 +3,8 @@ package com.zsh.petsystem.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
@@ -31,6 +33,7 @@ public class Users {
     private String city;
     private String state; // 省
     private String zipCode; // 邮政编码
+
     private LocalDate birthday; // 生日 (只包含年月日)
     private String profilePhotoUrl; // 头像图片
 

@@ -370,7 +370,15 @@ const routes: RouteRecordRaw[] = [
         name: 'AdminSendNotification',
         component: () => import('../views/admin/AdminNotificationSender.vue'),
         meta: { requiresAuth: true, roles: ['admin'] } // 确保权限
-      }
+      },
+
+      {
+        path: 'providers/details/:id', // 路径为 /admin/providers/details/:id
+        name: 'AdminProviderDetails',    // 路由名称
+        component: () => import('../views/admin/AdminProviderDetails.vue'), // 新建的详情页组件
+        props: true, // 允许将路由参数 :id作为 props 传递给组件
+        meta: { requiresAuth: true, roles: ['admin'] }
+      },
     ]
   }
 ]
